@@ -1,0 +1,25 @@
+[package]
+name = "fanotify"
+version = "0.2.0"
+authors = [
+    "Khyber Sen <kkysen@gmail.com>",
+    "Saquib Shazad <saquib.shahzad@uwaterloo.ca>",
+    "Asif Mallik <asif.mallik@columbia.edu>",
+    "Rickson Yang <rixin.yang.2001@gmail.com>",
+]
+edition = "2018"
+description = ""
+license = "MIT"
+repository = "https://github.com/codeprentice-org/fanotify"
+homepage = "https://github.com/codeprentice-org/fanotify/blob/main/README.md"
+readme = "README.md"
+categories = ["filesystem", "os::linux-apis"]
+keywords = ["fanotify"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+libc = "0.2.79"
+nix = "0.19.0"
+bitflags = "1.2.1"
+thiserror = "1.0.21"
