@@ -1,8 +1,8 @@
 use bitflags::bitflags;
 
 use super::libc::*;
-use crate::flags::mark::MarkAction::Flush;
-use crate::flags::mark::StaticMarkError::EmptyMask;
+use self::MarkAction::Flush;
+use self::StaticMarkError::EmptyMask;
 use std::ffi::CString;
 use std::os::raw::c_char;
 use std::os::unix::ffi::OsStringExt;

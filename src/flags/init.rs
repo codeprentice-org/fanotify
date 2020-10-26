@@ -1,6 +1,11 @@
 use super::libc::*;
 
 use bitflags::bitflags;
+use self::NotificationClass::{PreContent, Content, Notify};
+
+use static_assertions::const_assert_eq;
+use static_assertions::_core::hint::unreachable_unchecked;
+use self::ReadWrite::{Write, Read, ReadAndWrite};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(u32)]
@@ -41,7 +46,7 @@ impl Flags {
 pub enum ReadWrite {
     Read = libc::O_RDONLY as u32,
     Write = libc::O_WRONLY as u32,
-    ReadWrite = libc::O_RDWR as u32,
+    ReadAndWrite = libc::O_RDWR as u32,
 }
 
 impl Default for ReadWrite {
@@ -79,18 +84,63 @@ pub struct RawInit {
 
 impl Init {
     pub fn flags(&self) -> u32 {
-        let flags = self.notification_class as u32 | self.flags.bits();
-        flags as c_uint
+        self.notification_class as u32 | self.flags.bits()
     }
 
     pub fn event_flags(&self) -> u32 {
-        let flags = self.rw as u32 | self.event_flags.bits();
-        flags as c_uint
+        self.rw as u32 | self.event_flags.bits()
     }
 
     pub fn as_raw(&self) -> RawInit {
         RawInit {
             flags: self.flags(),
+            event_flags: self.event_flags(),
+        }
+    }
+}
+
+impl RawInit {
+    pub fn notification_class(&self) -> NotificationClass {
+        const_assert_eq!(PreContent as u32, 0b1000);
+        const_assert_eq!(Content as u32, 0b0100);
+        const_assert_eq!(Notify as u32, 0b0000);
+        match (self.flags & 0b1111) >> 2 {
+            0b10 => PreContent,
+            0b01 => Content,
+            0b00 => Notify,
+            0b11 => unsafe { unreachable_unchecked() },
+            _ => unsafe { unreachable_unchecked() }, // definitely can't happen
+        }
+    }
+
+    pub fn flags(&self) -> Flags {
+        let bits = self.flags & !0b1100;
+        unsafe { Flags::from_bits_unchecked(bits) }
+    }
+
+    pub fn rw(&self) -> ReadWrite {
+        const_assert_eq!(Read as u32, 0);
+        const_assert_eq!(Write as u32, 1);
+        const_assert_eq!(ReadAndWrite as u32, 2);
+        match self.event_flags & 0b11 {
+            0 => Read,
+            1 => Write,
+            2 => ReadAndWrite,
+            3 => unreachable!(), // less sure of this
+            _ => unsafe { unreachable_unchecked() }, // definitely can't happen
+        }
+    }
+
+    pub fn event_flags(&self) -> EventFlags {
+        let bits = self.event_flags & !0b11;
+        unsafe { EventFlags::from_bits_unchecked(bits) }
+    }
+
+    pub fn undo_raw(&self) -> Init {
+        Init {
+            notification_class: self.notification_class(),
+            flags: self.flags(),
+            rw: self.rw(),
             event_flags: self.event_flags(),
         }
     }

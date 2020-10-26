@@ -4,17 +4,16 @@ mod util;
 
 #[cfg(test)]
 mod tests {
-    use crate::descriptor::{FanotifyInit, InitError};
+    use crate::flags::init::Init;
+    use crate::descriptor::InitError;
 
     #[test]
     fn it_works() {
-        let args = FanotifyInit {
+        let args = Init {
             ..Default::default()
         };
         match args.run() {
-            Ok(fd) => {
-
-            },
+            Ok(_fd) => {}
             Err(e) => {
                 assert_eq!(e, InitError::Unsupported);
             }

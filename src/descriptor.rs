@@ -1,9 +1,8 @@
-use crate::flags::init::{EventFlags, Flags, NotificationClass, ReadWrite, Init, RawInit};
+use crate::flags::init::{Init, RawInit};
 use crate::flags::mark::Mark;
 use crate::util::{libc_call, libc_void_call};
 use libc::{fanotify_init, fanotify_mark};
 use nix::errno::Errno;
-use std::os::raw::c_uint;
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use thiserror::Error;
 
