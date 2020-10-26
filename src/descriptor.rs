@@ -1,6 +1,6 @@
 use crate::flags::init::{Init, RawInit, Flags};
 use crate::flags::mark::Mark;
-use crate::util::{libc_call, libc_void_call};
+use crate::util::{libc_call, libc_void_call, ImpossibleError};
 use libc::{fanotify_init, fanotify_mark};
 use nix::errno::Errno;
 use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd};
@@ -69,18 +69,16 @@ impl RawInit {
         libc_call(|| unsafe { fanotify_init(self.flags, self.event_flags) })
             .map(|fd| Fanotify { fd, init: self })
             .map_err(|errno| match errno {
-                EINVAL => panic!(format!("EINVAL should be impossible here")),
                 EMFILE => ExceededFanotifyGroupPerProcessLimit,
                 ENFILE => ExceededOpenFileDescriptorPerProcessLimit,
                 ENOMEM => OutOfMemory,
                 EPERM => PermissionDenied,
                 ENOSYS => Unsupported,
-                _ => panic!(
-                    "unexpected error in fanotify_init({:?}, {:?}): {:?}",
-                    self.flags,
-                    self.event_flags,
-                    errno.desc(),
-                ),
+                EINVAL | _ => panic!("{}", ImpossibleError {
+                    syscall: "fanotify_init",
+                    args: format!("{}, {}", self.flags, self.event_flags),
+                    errno,
+                }),
             })
     }
 }
@@ -96,7 +94,7 @@ pub enum MarkError {
     #[error("invalid argument specified")]
     InvalidArgument,
     #[error("TODO")]
-    TODO,
+    PathDoesntSupportFsid,
 }
 
 impl Fanotify {
@@ -113,16 +111,13 @@ impl Fanotify {
         libc_void_call(|| unsafe {
             fanotify_mark(self.fd, raw.flags, raw.mask, raw.dir_fd, raw.path_ptr())
         }).map_err(|errno| match errno {
-            EINVAL => InvalidArgument,
-            _ => panic!(
-                "unexpected error in fanotify_mark({:?}, {:?}, {:?}, {:?}, {:?}): {:?}",
-                self.fd,
-                raw.flags,
-                raw.mask,
-                raw.dir_fd,
-                raw.path_ptr(),
-                errno.desc(),
-            ),
+            EBADF => InvalidArgument,
+            EINVAL | _ => panic!("{}", ImpossibleError {
+                syscall: "fanotify_mark",
+                args: format!("{}, {}, {}, {}, {:?}",
+                              self.fd, raw.flags, raw.mask, raw.dir_fd, raw.path_ptr()),
+                errno,
+            }),
         })
     }
 }

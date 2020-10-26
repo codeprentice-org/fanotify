@@ -1,5 +1,6 @@
 use std::os::raw::c_int;
 use nix::errno::Errno;
+use thiserror::Error;
 
 pub fn libc_call<F: FnOnce() -> c_int>(f: F) -> Result<c_int, Errno> {
     Errno::clear();
@@ -19,4 +20,12 @@ pub fn libc_void_call<F: FnOnce() -> c_int>(f: F) -> Result<(), Errno> {
         0 => Ok(()),
         _ => unreachable!(),
     }
+}
+
+#[derive(Error, Debug)]
+#[error("impossible error in syscall {}({}): {:?}", .syscall, .args, .errno)]
+pub struct ImpossibleError {
+    pub syscall: &'static str,
+    pub args: String,
+    pub errno: Errno,
 }

@@ -6,9 +6,14 @@ use self::StaticMarkError::EmptyMask;
 use std::ffi::CString;
 use std::os::raw::c_char;
 use std::os::unix::ffi::OsStringExt;
-use std::os::unix::io::{AsRawFd, RawFd};
+use std::os::unix::io::{AsRawFd, RawFd, IntoRawFd, FromRawFd};
 use std::path::Path;
 use thiserror::Error;
+use std::borrow::Cow;
+use std::fmt::Display;
+use static_assertions::_core::fmt::Formatter;
+use std::fmt;
+use static_assertions::_core::marker::PhantomData;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum MarkOneAction {
@@ -107,39 +112,147 @@ impl MarkMask {
     }
 }
 
+// can derive Eq b/c the lifetime ensures the fd survives the DirFd,
+// and while that fd is still valid, I can compare by fd
+#[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
+pub struct DirFd<'a> {
+    fd: RawFd,
+    phantom: PhantomData<&'a ()>,
+}
+
+impl AsRawFd for DirFd<'_> {
+    fn as_raw_fd(&self) -> RawFd {
+        self.fd
+    }
+}
+
+impl IntoRawFd for DirFd<'_> {
+    fn into_raw_fd(self) -> RawFd {
+        self.fd
+    }
+}
+
+impl FromRawFd for DirFd<'_> {
+    unsafe fn from_raw_fd(fd: RawFd) -> Self {
+        Self { fd, phantom: PhantomData }
+    }
+}
+
+impl<'a> DirFd<'a> {
+    pub fn current_working_directory() -> Self {
+        Self {
+            fd: libc::AT_FDCWD,
+            phantom: PhantomData,
+        }
+    }
+
+    pub fn directory<P: AsRawFd>(dir: &'a P) -> Self {
+        Self {
+            fd: dir.as_raw_fd(),
+            phantom: PhantomData,
+        }
+    }
+
+    pub unsafe fn invalid() -> Self {
+        Self::from_raw_fd(-1)
+    }
+
+    pub fn resolve(&self) -> Cow<Path> {
+        if self.fd == libc::AT_FDCWD {
+            Cow::Borrowed(Path::new("."))
+        } else {
+            let link = Path::new("/proc/self/fd")
+                .join(format!("{}", self.fd));
+            let link = link.read_link().unwrap_or(link);
+            Cow::Owned(link)
+        }
+    }
+}
+
+impl Display for DirFd<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self.resolve() {
+            Cow::Borrowed(path) => path.display().fmt(f),
+            Cow::Owned(path) => path.display().fmt(f),
+        }
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct MarkPath<'a> {
-    pub(crate) dir_fd: RawFd,
+    pub(crate) dir: DirFd<'a>,
     pub(crate) path: Option<&'a Path>,
+}
+
+#[derive(Debug)]
+pub struct MarkPathDisplay<'a> {
+    dir: Option<DirFd<'a>>,
+    path: Option<&'a Path>,
+}
+
+impl Display for MarkPathDisplay<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
 
 impl<'a> MarkPath<'a> {
     pub fn current_working_directory() -> Self {
         Self {
-            dir_fd: libc::AT_FDCWD,
+            dir: DirFd::current_working_directory(),
             path: None,
         }
     }
 
     pub fn directory<P: AsRawFd>(dir: &'a P) -> Self {
         Self {
-            dir_fd: dir.as_raw_fd(),
+            dir: DirFd::directory(dir),
             path: None,
         }
     }
 
     pub fn relative_to<P: AsRawFd>(dir: &'a P, path: &'a Path) -> Self {
         Self {
-            dir_fd: dir.as_raw_fd(),
+            dir: DirFd::directory(dir),
             path: Some(path),
         }
     }
 
     pub fn absolute(path: &'a Path) -> Self {
         Self {
-            dir_fd: 0 as RawFd, // ignored by fanotify_mark()
+            dir: unsafe { DirFd::invalid() }, // ignored by fanotify_mark()
             path: Some(path),
         }
+    }
+
+    pub fn resolve(&self) -> Cow<Path> {
+        match self.path {
+            None => self.dir.resolve(),
+            Some(path) => if path.is_absolute() {
+                Cow::Borrowed(path)
+            } else {
+                Cow::Owned(self.dir.resolve().to_owned().join(path))
+            }
+        }
+    }
+
+    pub fn display(&self) -> MarkPathDisplay<'a> {
+        let dir = Some(self.dir);
+        MarkPathDisplay {
+            dir: match self.path {
+                None => dir,
+                Some(path) => dir.filter(|_| path.is_relative())
+            },
+            path: self.path,
+        }
+    }
+}
+
+
+
+impl Display for MarkPath<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.display().fmt(f)
     }
 }
 
@@ -202,7 +315,7 @@ impl<'a> Mark<'a> {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, PartialEq, Hash)]
 pub struct RawMark {
     pub(crate) flags: u32,
     pub(crate) mask: u64,
@@ -224,7 +337,7 @@ impl<'a> Mark<'a> {
         RawMark {
             flags: self.flags.as_raw(),
             mask: self.mask.bits(),
-            dir_fd: self.path.dir_fd,
+            dir_fd: self.path.dir.as_raw_fd(),
             path: self
                 .path
                 .path
