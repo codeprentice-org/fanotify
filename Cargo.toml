@@ -8,13 +8,13 @@ authors = [
     "Rickson Yang <rixin.yang.2001@gmail.com>",
 ]
 edition = "2018"
-description = ""
+description = "An idiomatic Rust wrapper for fanotify"
 license = "MIT"
 repository = "https://github.com/codeprentice-org/fanotify"
 homepage = "https://github.com/codeprentice-org/fanotify/blob/main/README.md"
 readme = "README.md"
 categories = ["filesystem", "os::linux-apis"]
-keywords = ["fanotify"]
+keywords = ["fanotify", "filesystem", "watch"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
