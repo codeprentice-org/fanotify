@@ -53,9 +53,9 @@ bitflags! {
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct CombinedMarkFlags {
-    action: MarkAction,
-    what: MarkWhat,
-    other: MarkFlags,
+    pub(crate) action: MarkAction,
+    pub(crate) what: MarkWhat,
+    pub(crate) other: MarkFlags,
 }
 
 type RawMarkFlags = u32;
@@ -99,12 +99,18 @@ impl MarkMask {
     pub fn moved() -> Self {
         Self::MOVED_FROM | Self::MOVED_TO
     }
+
+    pub fn includes_permission(&self) -> bool {
+        [Self::OPEN_PERM, Self::OPEN_EXEC_PERM, Self::ACCESS_PERM]
+            .iter()
+            .any(|perm| self.contains(*perm))
+    }
 }
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct MarkPath<'a> {
-    dir_fd: RawFd,
-    path: Option<&'a Path>,
+    pub(crate) dir_fd: RawFd,
+    pub(crate) path: Option<&'a Path>,
 }
 
 impl<'a> MarkPath<'a> {
@@ -148,9 +154,9 @@ pub struct MarkOne<'a> {
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct Mark<'a> {
-    flags: CombinedMarkFlags,
-    mask: MarkMask,
-    path: MarkPath<'a>,
+    pub(crate) flags: CombinedMarkFlags,
+    pub(crate) mask: MarkMask,
+    pub(crate) path: MarkPath<'a>,
 }
 
 #[derive(Error, Debug)]

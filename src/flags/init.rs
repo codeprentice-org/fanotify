@@ -76,7 +76,7 @@ pub struct Init {
     pub event_flags: EventFlags,
 }
 
-#[derive(Debug, Eq, PartialEq, Hash)]
+#[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
 pub struct RawInit {
     pub(crate) flags: u32,
     pub(crate) event_flags: u32,

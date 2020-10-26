@@ -1,42 +1,49 @@
-use crate::flags::init::{Init, RawInit};
+use crate::flags::init::{Init, RawInit, Flags};
 use crate::flags::mark::Mark;
 use crate::util::{libc_call, libc_void_call};
 use libc::{fanotify_init, fanotify_mark};
 use nix::errno::Errno;
-use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd};
 use thiserror::Error;
+use crate::flags::init::NotificationClass::Notify;
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Fanotify(RawFd);
+#[derive(Debug)]
+pub struct Fanotify {
+    fd: RawFd,
+    init: RawInit,
+}
 
 impl Drop for Fanotify {
     fn drop(&mut self) {
         unsafe {
-            libc::close(self.0);
+            libc::close(self.fd);
         }
     }
 }
 
 impl AsRawFd for Fanotify {
     fn as_raw_fd(&self) -> RawFd {
-        self.0
+        self.fd
     }
 }
 
 impl IntoRawFd for Fanotify {
     fn into_raw_fd(self) -> RawFd {
-        self.0
+        self.fd
     }
 }
 
-impl FromRawFd for Fanotify {
-    unsafe fn from_raw_fd(fd: RawFd) -> Self {
-        Self(fd)
+// can't impl FromRawFd, but this provides equivalent functionality
+impl Fanotify {
+    pub unsafe fn from_raw_fd(fd: RawFd, init: RawInit) -> Self {
+        Self { fd, init }
     }
 }
 
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum InitError {
+    #[error("invalid argument specified")]
+    InvalidArgument,
     #[error("exceeded the per-process limit on fanotify groups")]
     ExceededFanotifyGroupPerProcessLimit,
     #[error("exceeded the per-process limit on open file descriptors")]
@@ -50,24 +57,30 @@ pub enum InitError {
 }
 
 impl RawInit {
-    pub fn run(&self) -> Result<Fanotify, InitError> {
+    pub fn run(self) -> Result<Fanotify, InitError> {
         use Errno::*;
         use InitError::*;
+
+        let init = self.undo_raw();
+        if init.flags.contains(Flags::REPORT_FID) && init.notification_class != Notify {
+            return Err(InvalidArgument);
+        }
+
         libc_call(|| unsafe { fanotify_init(self.flags, self.event_flags) })
-            .map(Fanotify)
+            .map(|fd| Fanotify { fd, init: self })
             .map_err(|errno| match errno {
+                EINVAL => panic!(format!("EINVAL should be impossible here")),
                 EMFILE => ExceededFanotifyGroupPerProcessLimit,
                 ENFILE => ExceededOpenFileDescriptorPerProcessLimit,
                 ENOMEM => OutOfMemory,
                 EPERM => PermissionDenied,
                 ENOSYS => Unsupported,
-                // EINVAL => unreachable!(), // handled below
-                _ => panic!(format!(
-                    "unexpected error in fanotify_init({}, {}): {}",
+                _ => panic!(
+                    "unexpected error in fanotify_init({:?}, {:?}): {:?}",
                     self.flags,
                     self.event_flags,
-                    errno.desc()
-                )),
+                    errno.desc(),
+                ),
             })
     }
 }
@@ -80,6 +93,8 @@ impl Init {
 
 #[derive(Error, Debug)]
 pub enum MarkError {
+    #[error("invalid argument specified")]
+    InvalidArgument,
     #[error("TODO")]
     TODO,
 }
@@ -87,11 +102,27 @@ pub enum MarkError {
 impl Fanotify {
     pub fn mark(&self, mark: Mark) -> Result<(), MarkError> {
         use MarkError::*;
+        use Errno::*;
+        let init = self.init.undo_raw();
+        if mark.mask.includes_permission() && init.notification_class == Notify {
+            // man page also says to include || init.flags & Flags::REPORT_FID,
+            // but that requires init.notification_class == Notify itself
+            return Err(InvalidArgument);
+        }
         let raw = mark.to_raw();
         libc_void_call(|| unsafe {
-            fanotify_mark(self.0, raw.flags, raw.mask, raw.dir_fd, raw.path_ptr())
+            fanotify_mark(self.fd, raw.flags, raw.mask, raw.dir_fd, raw.path_ptr())
         }).map_err(|errno| match errno {
-            _ => TODO,
+            EINVAL => InvalidArgument,
+            _ => panic!(
+                "unexpected error in fanotify_mark({:?}, {:?}, {:?}, {:?}, {:?}): {:?}",
+                self.fd,
+                raw.flags,
+                raw.mask,
+                raw.dir_fd,
+                raw.path_ptr(),
+                errno.desc(),
+            ),
         })
     }
 }
