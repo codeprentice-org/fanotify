@@ -4,7 +4,7 @@ mod util;
 
 #[cfg(test)]
 mod tests {
-    use crate::descriptor::{FanotifyInit, FanotifyError};
+    use crate::descriptor::{FanotifyInit, InitError};
 
     #[test]
     fn it_works() {
@@ -16,7 +16,7 @@ mod tests {
 
             },
             Err(e) => {
-                assert_eq!(e, FanotifyError::Unsupported);
+                assert_eq!(e, InitError::Unsupported);
             }
         }
         assert_eq!(2 + 2, 4);

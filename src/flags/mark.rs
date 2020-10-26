@@ -51,6 +51,7 @@ bitflags! {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub struct CombinedMarkFlags {
     action: MarkAction,
     what: MarkWhat,
@@ -100,6 +101,7 @@ impl MarkMask {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub struct MarkPath<'a> {
     dir_fd: RawFd,
     path: Option<&'a Path>,
@@ -135,6 +137,7 @@ impl<'a> MarkPath<'a> {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub struct MarkOne<'a> {
     action: MarkOneAction,
     what: MarkWhat,
@@ -143,6 +146,7 @@ pub struct MarkOne<'a> {
     path: MarkPath<'a>,
 }
 
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub struct Mark<'a> {
     flags: CombinedMarkFlags,
     mask: MarkMask,
@@ -192,6 +196,7 @@ impl<'a> Mark<'a> {
     }
 }
 
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub struct RawMark {
     pub(crate) flags: u32,
     pub(crate) mask: u64,

@@ -1,6 +1,4 @@
-use crate::flags::init::{
-    FanotifyEventFlags, FanotifyFlags, FanotifyNotificationClass, FanotifyReadWrite,
-};
+use crate::flags::init::{EventFlags, Flags, NotificationClass, ReadWrite, Init, RawInit};
 use crate::flags::mark::Mark;
 use crate::util::{libc_call, libc_void_call};
 use libc::{fanotify_init, fanotify_mark};
@@ -10,9 +8,9 @@ use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 use thiserror::Error;
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct FanotifyDescriptor(RawFd);
+pub struct Fanotify(RawFd);
 
-impl Drop for FanotifyDescriptor {
+impl Drop for Fanotify {
     fn drop(&mut self) {
         unsafe {
             libc::close(self.0);
@@ -20,34 +18,26 @@ impl Drop for FanotifyDescriptor {
     }
 }
 
-impl AsRawFd for FanotifyDescriptor {
+impl AsRawFd for Fanotify {
     fn as_raw_fd(&self) -> RawFd {
         self.0
     }
 }
 
-impl IntoRawFd for FanotifyDescriptor {
+impl IntoRawFd for Fanotify {
     fn into_raw_fd(self) -> RawFd {
         self.0
     }
 }
 
-impl FromRawFd for FanotifyDescriptor {
+impl FromRawFd for Fanotify {
     unsafe fn from_raw_fd(fd: RawFd) -> Self {
         Self(fd)
     }
 }
 
-#[derive(Debug, Default)]
-pub struct FanotifyInit {
-    pub notification_class: FanotifyNotificationClass,
-    pub flags: FanotifyFlags,
-    pub rw: FanotifyReadWrite,
-    pub event_flags: FanotifyEventFlags,
-}
-
 #[derive(Error, Debug, Eq, PartialEq)]
-pub enum FanotifyError {
+pub enum InitError {
     #[error("exceeded the per-process limit on fanotify groups")]
     ExceededFanotifyGroupPerProcessLimit,
     #[error("exceeded the per-process limit on open file descriptors")]
@@ -60,24 +50,12 @@ pub enum FanotifyError {
     Unsupported,
 }
 
-impl FanotifyInit {
-    pub fn flags(&self) -> c_uint {
-        let flags = self.notification_class as u32 | self.flags.bits();
-        flags as c_uint
-    }
-
-    pub fn event_flags(&self) -> c_uint {
-        let flags = self.rw as u32 | self.event_flags.bits();
-        flags as c_uint
-    }
-
-    pub fn run(&self) -> Result<FanotifyDescriptor, FanotifyError> {
+impl RawInit {
+    pub fn run(&self) -> Result<Fanotify, InitError> {
         use Errno::*;
-        use FanotifyError::*;
-        let flags = self.flags();
-        let event_flags = self.event_flags();
-        libc_call(|| unsafe { fanotify_init(flags, event_flags) })
-            .map(FanotifyDescriptor)
+        use InitError::*;
+        libc_call(|| unsafe { fanotify_init(self.flags, self.event_flags) })
+            .map(Fanotify)
             .map_err(|errno| match errno {
                 EMFILE => ExceededFanotifyGroupPerProcessLimit,
                 ENFILE => ExceededOpenFileDescriptorPerProcessLimit,
@@ -87,11 +65,17 @@ impl FanotifyInit {
                 // EINVAL => unreachable!(), // handled below
                 _ => panic!(format!(
                     "unexpected error in fanotify_init({}, {}): {}",
-                    flags,
-                    event_flags,
+                    self.flags,
+                    self.event_flags,
                     errno.desc()
                 )),
             })
+    }
+}
+
+impl Init {
+    pub fn run(&self) -> Result<Fanotify, InitError> {
+        self.as_raw().run()
     }
 }
 
@@ -101,7 +85,7 @@ pub enum MarkError {
     TODO,
 }
 
-impl FanotifyDescriptor {
+impl Fanotify {
     pub fn mark(&self, mark: Mark) -> Result<(), MarkError> {
         use MarkError::*;
         let raw = mark.to_raw();
