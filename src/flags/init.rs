@@ -6,6 +6,9 @@ use self::NotificationClass::{PreContent, Content, Notify};
 use static_assertions::const_assert_eq;
 use static_assertions::_core::hint::unreachable_unchecked;
 use self::ReadWrite::{Write, Read, ReadAndWrite};
+use std::fmt::Debug;
+use static_assertions::_core::fmt::Formatter;
+use std::fmt;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(u32)]
@@ -36,8 +39,8 @@ bitflags! {
 }
 
 impl Flags {
-    pub fn unlimited(self) -> Self {
-        self | Self::UNLIMITED_QUEUE | Self::UNLIMITED_MARKS
+    pub fn unlimited() -> Self {
+        Self::UNLIMITED_QUEUE | Self::UNLIMITED_MARKS
     }
 }
 
@@ -76,7 +79,7 @@ pub struct Init {
     pub event_flags: EventFlags,
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
+#[derive(Eq, PartialEq, Hash, Copy, Clone)]
 pub struct RawInit {
     pub(crate) flags: u32,
     pub(crate) event_flags: u32,
@@ -143,5 +146,12 @@ impl RawInit {
             rw: self.rw(),
             event_flags: self.event_flags(),
         }
+    }
+}
+
+impl Debug for RawInit {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        // delegate Debug impl to Init
+        self.undo_raw().fmt(f)
     }
 }
