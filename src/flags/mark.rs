@@ -13,9 +13,6 @@ use std::borrow::Cow;
 use std::fmt::{Display, Formatter, Debug};
 use std::fmt;
 use std::marker::PhantomData;
-use self::MarkOneAction::Add;
-use self::MarkWhat::{MountPoint, FileSystem};
-use std::fs::File;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum MarkOneAction {
@@ -146,8 +143,12 @@ impl<'a> DirFd<'a> {
         Self::from_raw_fd(-1)
     }
 
+    pub fn is_current_working_directory(&self) -> bool {
+        self.fd == libc::AT_FDCWD
+    }
+
     pub fn resolve(&self) -> Cow<Path> {
-        if self.fd == libc::AT_FDCWD {
+        if self.is_current_working_directory() {
             Cow::Borrowed(Path::new("."))
         } else {
             let link = Path::new("/proc/self/fd")
@@ -183,24 +184,24 @@ impl MarkPath<'static> {
 }
 
 impl<'a> MarkPath<'a> {
-    pub fn directory<P: AsRawFd>(dir: &'a P) -> Self {
+    pub fn directory<FD: AsRawFd>(dir: &'a FD) -> Self {
         Self {
             dir: DirFd::directory(dir),
             path: None,
         }
     }
 
-    pub fn relative_to<P: AsRawFd>(dir: &'a P, path: &'a Path) -> Self {
+    pub fn relative_to<FD: AsRawFd, P: AsRef<Path> + 'a + ?Sized>(dir: &'a FD, path: &'a P) -> Self {
         Self {
             dir: DirFd::directory(dir),
-            path: Some(path),
+            path: Some(path.as_ref()),
         }
     }
 
-    pub fn absolute(path: &'a Path) -> Self {
+    pub fn absolute<P: AsRef<Path> + 'a + ?Sized>(path: &'a P) -> Self {
         Self {
             dir: unsafe { DirFd::invalid() }, // ignored by fanotify_mark()
-            path: Some(path),
+            path: Some(path.as_ref()),
         }
     }
 
@@ -302,17 +303,6 @@ impl<'a> Mark<'a> {
     }
 }
 
-#[test]
-fn mark_static_error() {
-    assert_eq!(Mark::one(MarkOne {
-        action: Add,
-        what: FileSystem,
-        flags: MarkFlags::empty(),
-        mask: MarkMask::empty(),
-        path: MarkPath::current_working_directory(),
-    }), Err(StaticMarkError::EmptyMask));
-}
-
 type RawMarkFlags = u32;
 
 #[derive(Debug, PartialEq, Hash)]
@@ -354,66 +344,86 @@ impl<'a> Mark<'a> {
     }
 }
 
-#[test]
-fn mark_display_debug_1() {
-    let mark = Mark::one(MarkOne {
-        action: Add,
-        what: FileSystem,
-        flags: MarkFlags::empty(),
-        mask: MarkMask::OPEN | MarkMask::close(),
-        path: MarkPath::current_working_directory(),
-    }).unwrap();
-    assert_eq!(
-        format!("{}", mark),
-        "Mark { \
+#[cfg(test)]
+mod tests {
+    use std::fs::File;
+    use std::path::Path;
+    use crate::flags::mark::{MarkOne, Mark, MarkFlags, MarkMask, MarkPath, StaticMarkError};
+    use crate::flags::mark::MarkOneAction::Add;
+    use crate::flags::mark::MarkWhat::{MountPoint, FileSystem};
+
+    #[test]
+    fn mark_static_error() {
+        assert_eq!(Mark::one(MarkOne {
+            action: Add,
+            what: FileSystem,
+            flags: MarkFlags::empty(),
+            mask: MarkMask::empty(),
+            path: MarkPath::current_working_directory(),
+        }), Err(StaticMarkError::EmptyMask));
+    }
+
+    #[test]
+    fn mark_display_debug_1() {
+        let mark = Mark::one(MarkOne {
+            action: Add,
+            what: FileSystem,
+            flags: MarkFlags::empty(),
+            mask: MarkMask::OPEN | MarkMask::close(),
+            path: MarkPath::current_working_directory(),
+        }).unwrap();
+        assert_eq!(
+            format!("{}", mark),
+            "Mark { \
                 action: Add, \
                 what: FileSystem, \
                 flags: (empty), \
                 mask: CLOSE_WRITE | CLOSE_NOWRITE | OPEN, \
                 path: { dir: . } \
             }",
-    );
-}
+        );
+    }
 
-#[test]
-fn mark_display_debug_2() {
-    let mark = Mark::one(MarkOne {
-        action: Add,
-        what: FileSystem,
-        flags: MarkFlags::ONLY_DIR | MarkFlags::DONT_FOLLOW,
-        mask: MarkMask::CREATE | MarkMask::DELETE | MarkMask::moved(),
-        path: MarkPath::absolute(Path::new("/home")),
-    }).unwrap();
-    assert_eq!(
-        format!("{}", mark),
-        "Mark { \
+    #[test]
+    fn mark_display_debug_2() {
+        let mark = Mark::one(MarkOne {
+            action: Add,
+            what: FileSystem,
+            flags: MarkFlags::ONLY_DIR | MarkFlags::DONT_FOLLOW,
+            mask: MarkMask::CREATE | MarkMask::DELETE | MarkMask::moved(),
+            path: MarkPath::absolute(Path::new("/home")),
+        }).unwrap();
+        assert_eq!(
+            format!("{}", mark),
+            "Mark { \
                 action: Add, \
                 what: FileSystem, \
                 flags: DONT_FOLLOW | ONLY_DIR, \
                 mask: CREATE | DELETE | MOVED_FROM | MOVED_TO, \
                 path: { absolute: /home } \
             }",
-    );
-}
+        );
+    }
 
-#[test]
-fn mark_display_debug_3() {
-    let root = File::open(Path::new("/")).unwrap();
-    let mark = Mark::one(MarkOne {
-        action: Add,
-        what: MountPoint,
-        flags: MarkFlags::ONLY_DIR | MarkFlags::DONT_FOLLOW,
-        mask: MarkMask::CREATE | MarkMask::DELETE | MarkMask::moved(),
-        path: MarkPath::relative_to(&root, Path::new("proc")),
-    }).unwrap();
-    assert_eq!(
-        format!("{}", mark),
-        "Mark { \
+    #[test]
+    fn mark_display_debug_3() {
+        let root = File::open(Path::new("/")).unwrap();
+        let mark = Mark::one(MarkOne {
+            action: Add,
+            what: MountPoint,
+            flags: MarkFlags::ONLY_DIR | MarkFlags::DONT_FOLLOW,
+            mask: MarkMask::CREATE | MarkMask::DELETE | MarkMask::moved(),
+            path: MarkPath::relative_to(&root, Path::new("proc")),
+        }).unwrap();
+        assert_eq!(
+            format!("{}", mark),
+            "Mark { \
                 action: Add, \
                 what: MountPoint, \
                 flags: DONT_FOLLOW | ONLY_DIR, \
                 mask: CREATE | DELETE | MOVED_FROM | MOVED_TO, \
                 path: { dir: /, relative: proc, path: /proc } \
             }",
-    );
+        );
+    }
 }

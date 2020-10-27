@@ -1,12 +1,10 @@
 use super::flags::init::{Init, RawInit, Flags, NotificationClass::Notify};
-use super::flags::mark::{Mark, DirFd, MarkPath, MarkFlags, MarkAction::{Add, Remove}};
+use super::flags::mark::{Mark, MarkFlags, MarkAction::{Add, Remove}};
 use super::util::{libc_call, libc_void_call, ImpossibleError};
 use libc::{fanotify_init, fanotify_mark};
 use nix::errno::Errno;
 use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd};
 use thiserror::Error;
-use crate::flags::mark::{MarkOne, MarkMask, MarkOneAction};
-use crate::flags::mark::MarkWhat::FileSystem;
 
 #[derive(Debug)]
 pub struct Fanotify {
@@ -101,26 +99,12 @@ impl Init {
     }
 }
 
-#[test]
-fn init_or_catches_unsupported() {
-    let args = Init {
-        flags: Flags::unlimited(),
-        ..Default::default()
-    };
-    match args.run() {
-        Ok(_fd) => {}
-        Err(e) => {
-            assert_eq!(e, InitError::FanotifyUnsupported);
-        }
-    }
-}
-
 #[derive(Error, Debug, Eq, PartialEq, Hash)]
 pub enum RawMarkError {
     #[error("invalid argument specified")]
     InvalidArgument,
-    #[error("bad dir fd specified")]
-    BadDirFd,
+    #[error("bad dir fd specified: {}", .fd)]
+    BadDirFd { fd: RawFd },
     #[error("not a directory, but {:?} specified", MarkFlags::ONLY_DIR)]
     NotADirectory,
     #[error("path does not exist")]
@@ -162,7 +146,7 @@ impl Fanotify {
         libc_void_call(|| unsafe {
             fanotify_mark(self.fd, raw.flags, raw.mask, raw.dir_fd, raw.path_ptr())
         }).map_err(|errno| match errno {
-            EBADF => BadDirFd,
+            EBADF => BadDirFd { fd: mark.path.dir.as_raw_fd() },
             ENOTDIR => NotADirectory,
             ENOENT if mark.action == Add => PathDoesNotExist,
             ENODEV => PathDoesNotSupportFSID,
@@ -193,25 +177,48 @@ impl Fanotify {
     }
 }
 
-#[test]
-fn init_and_mark() {
-    let args = Init {
-        flags: Flags::unlimited(),
-        ..Default::default()
-    };
-    let fanotify = match args.run() {
-        Ok(fanotify) => fanotify,
-        Err(e) => {
-            assert_eq!(e, InitError::FanotifyUnsupported);
-            return;
+#[cfg(test)]
+mod tests {
+    use crate::flags::init::{Init, Flags};
+    use crate::InitError;
+    use crate::flags::mark::{Mark, MarkOne, MarkMask, MarkPath, MarkFlags};
+    use crate::flags::mark::MarkOneAction::Add;
+    use crate::flags::mark::MarkWhat::MountPoint;
+
+    #[test]
+    fn init_or_catches_unsupported() {
+        let args = Init {
+            flags: Flags::unlimited(),
+            ..Default::default()
+        };
+        match args.run() {
+            Ok(_fd) => {}
+            Err(e) => {
+                assert_eq!(e, InitError::FanotifyUnsupported);
+            }
         }
-    };
-    let mark = Mark::one(MarkOne {
-        action: MarkOneAction::Add,
-        what: FileSystem,
-        flags: MarkFlags::empty(),
-        mask: MarkMask::OPEN | MarkMask::close(),
-        path: MarkPath::current_working_directory(),
-    }).unwrap();
-    fanotify.mark(mark).unwrap();
+    }
+
+    #[test]
+    fn init_and_mark() {
+        let args = Init {
+            flags: Flags::unlimited(),
+            ..Default::default()
+        };
+        let fanotify = match args.run() {
+            Ok(fanotify) => fanotify,
+            Err(e) => {
+                assert_eq!(e, InitError::FanotifyUnsupported);
+                return;
+            }
+        };
+        let mark = Mark::one(MarkOne {
+            action: Add,
+            what: MountPoint,
+            flags: MarkFlags::empty(),
+            mask: MarkMask::OPEN | MarkMask::close(),
+            path: MarkPath::absolute("/home"),
+        }).unwrap();
+        fanotify.mark(mark).unwrap();
+    }
 }

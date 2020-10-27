@@ -163,19 +163,24 @@ impl Display for RawInit {
     }
 }
 
-#[test]
-fn init_display_debug() {
-    let args = Init {
-        flags: Flags::unlimited() | Flags::REPORT_FID,
-        ..Default::default()
-    };
-    assert_eq!(
-        format!("{}", args.as_raw()),
-        "Init { \
+#[cfg(test)]
+mod tests {
+    use crate::flags::init::{Init, Flags};
+
+    #[test]
+    fn init_display_debug() {
+        let args = Init {
+            flags: Flags::unlimited() | Flags::REPORT_FID,
+            ..Default::default()
+        };
+        assert_eq!(
+            format!("{}", args.as_raw()),
+            "Init { \
                 notification_class: Notify, \
                 flags: UNLIMITED_QUEUE | UNLIMITED_MARKS | REPORT_FID, \
                 rw: Read, \
                 event_flags: LARGE_FILE \
             }",
-    );
+        );
+    }
 }
