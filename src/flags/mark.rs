@@ -256,6 +256,13 @@ pub struct Mark<'a> {
     pub(crate) path: MarkPath<'a>,
 }
 
+impl Display for Mark<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        // delegate Debug impl to Init
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(Error, Debug, Eq, PartialEq, Hash)]
 pub enum StaticMarkError {
     #[error("mask must not be empty for add or remove")]
@@ -357,7 +364,7 @@ fn mark_display_debug_1() {
         path: MarkPath::current_working_directory(),
     }).unwrap();
     assert_eq!(
-        format!("{:?}", mark),
+        format!("{}", mark),
         "Mark { \
                 action: Add, \
                 what: FileSystem, \
@@ -378,7 +385,7 @@ fn mark_display_debug_2() {
         path: MarkPath::absolute(Path::new("/home")),
     }).unwrap();
     assert_eq!(
-        format!("{:?}", mark),
+        format!("{}", mark),
         "Mark { \
                 action: Add, \
                 what: FileSystem, \
@@ -400,7 +407,7 @@ fn mark_display_debug_3() {
         path: MarkPath::relative_to(&root, Path::new("proc")),
     }).unwrap();
     assert_eq!(
-        format!("{:?}", mark),
+        format!("{}", mark),
         "Mark { \
                 action: Add, \
                 what: MountPoint, \

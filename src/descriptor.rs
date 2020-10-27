@@ -75,7 +75,11 @@ impl RawInit {
                 ENOSYS => Unsupported,
                 EINVAL | _ => panic!("{}", ImpossibleError {
                     syscall: "fanotify_init",
-                    args: format!("{}, {}", self.flags, self.event_flags),
+                    args: format!(
+                        "flags = {}, event_flags = {}; init = {}",
+                        self.flags, self.event_flags,
+                        self,
+                    ),
                     errno,
                 }),
             })
@@ -160,8 +164,11 @@ impl Fanotify {
             // ENOSYS should be caught be init
             EINVAL | ENOSYS | _ => panic!("{}", ImpossibleError {
                 syscall: "fanotify_mark",
-                args: format!("{}, {}, {}, {}, {:?}",
-                              self.fd, raw.flags, raw.mask, raw.dir_fd, raw.path_ptr()),
+                args: format!(
+                    "fd = {}, flags = {}, mask = {}, dir_fd = {}, path = {:?}; mark = {}",
+                    self.fd, raw.flags, raw.mask, raw.dir_fd, raw.path_ptr(),
+                    mark,
+                ),
                 errno,
             }),
         })
