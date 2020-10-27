@@ -28,12 +28,18 @@ pub enum MarkAction {
     Flush = action::FAN_MARK_FLUSH,
 }
 
+impl MarkOneAction {
+    pub const fn const_into(self) -> MarkAction {
+        match self {
+            Self::Add => MarkAction::Add,
+            Self::Remove => MarkAction::Remove,
+        }
+    }
+}
+
 impl From<MarkOneAction> for MarkAction {
     fn from(it: MarkOneAction) -> Self {
-        match it {
-            MarkOneAction::Add => Self::Add,
-            MarkOneAction::Remove => Self::Remove,
-        }
+        it.const_into()
     }
 }
 
@@ -81,12 +87,12 @@ bitflags! {
 impl MarkMask {
     // combined flags
 
-    pub fn close() -> Self {
-        Self::CLOSE_WRITE | Self::CLOSE_NOWRITE
+    pub const fn close() -> Self {
+        Self::from_bits_truncate(Self::CLOSE_WRITE.bits | Self::CLOSE_NOWRITE.bits)
     }
 
-    pub fn moved() -> Self {
-        Self::MOVED_FROM | Self::MOVED_TO
+    pub const fn moved() -> Self {
+        Self::from_bits_truncate(Self::MOVED_FROM.bits | Self::MOVED_TO.bits)
     }
 
     pub fn includes_permission(&self) -> bool {
@@ -118,20 +124,28 @@ impl IntoRawFd for DirFd<'_> {
 
 impl FromRawFd for DirFd<'_> {
     unsafe fn from_raw_fd(fd: RawFd) -> Self {
-        Self { fd, phantom: PhantomData }
+        Self::const_from_raw_fd(fd)
     }
 }
 
 impl DirFd<'static> {
-    pub fn current_working_directory() -> Self {
-        Self {
-            fd: libc::AT_FDCWD,
-            phantom: PhantomData,
-        }
+    pub const fn current_working_directory() -> Self {
+        unsafe { Self::const_from_raw_fd(libc::AT_FDCWD) }
+    }
+
+    pub const unsafe fn invalid() -> Self {
+        Self::const_from_raw_fd(-1)
     }
 }
 
 impl<'a> DirFd<'a> {
+    pub const unsafe fn const_from_raw_fd(fd: RawFd) -> Self {
+        Self {
+            fd,
+            phantom: PhantomData,
+        }
+    }
+
     pub fn directory<P: AsRawFd>(dir: &'a P) -> Self {
         Self {
             fd: dir.as_raw_fd(),
@@ -139,11 +153,7 @@ impl<'a> DirFd<'a> {
         }
     }
 
-    pub unsafe fn invalid() -> Self {
-        Self::from_raw_fd(-1)
-    }
-
-    pub fn is_current_working_directory(&self) -> bool {
+    pub const fn is_current_working_directory(&self) -> bool {
         self.fd == libc::AT_FDCWD
     }
 
@@ -175,7 +185,7 @@ pub struct MarkPath<'a> {
 }
 
 impl MarkPath<'static> {
-    pub fn current_working_directory() -> Self {
+    pub const fn current_working_directory() -> Self {
         Self {
             dir: DirFd::current_working_directory(),
             path: None,
@@ -271,7 +281,7 @@ pub enum StaticMarkError {
 }
 
 impl<'a> Mark<'a> {
-    pub fn one(mark: MarkOne<'a>) -> Result<Self, StaticMarkError> {
+    pub const fn one(mark: MarkOne<'a>) -> Result<Self, StaticMarkError> {
         let MarkOne {
             action,
             what,
@@ -283,7 +293,7 @@ impl<'a> Mark<'a> {
             return Err(EmptyMask);
         }
         let this = Self {
-            action: action.into(),
+            action: action.const_into(),
             what,
             flags,
             mask,
@@ -292,7 +302,7 @@ impl<'a> Mark<'a> {
         Ok(this)
     }
 
-    pub fn flush(what: MarkWhat) -> Self {
+    pub const fn flush(what: MarkWhat) -> Self {
         Self {
             action: Flush,
             what,
@@ -323,7 +333,7 @@ impl RawMark {
 }
 
 impl<'a> Mark<'a> {
-    pub fn flags(&self) -> RawMarkFlags {
+    pub const fn flags(&self) -> RawMarkFlags {
         self.action as u32 | self.what as u32 | self.flags.bits()
     }
 

@@ -39,8 +39,8 @@ bitflags! {
 }
 
 impl Flags {
-    pub fn unlimited() -> Self {
-        Self::UNLIMITED_QUEUE | Self::UNLIMITED_MARKS
+    pub const fn unlimited() -> Self {
+        Self::from_bits_truncate(Self::UNLIMITED_QUEUE.bits | Self::UNLIMITED_MARKS.bits)
     }
 }
 
@@ -93,15 +93,15 @@ pub struct RawInit {
 }
 
 impl Init {
-    pub fn flags(&self) -> u32 {
+    pub const fn flags(&self) -> u32 {
         self.notification_class as u32 | self.flags.bits()
     }
 
-    pub fn event_flags(&self) -> u32 {
+    pub const fn event_flags(&self) -> u32 {
         self.rw as u32 | self.event_flags.bits()
     }
 
-    pub fn as_raw(&self) -> RawInit {
+    pub const fn as_raw(&self) -> RawInit {
         RawInit {
             flags: self.flags(),
             event_flags: self.event_flags(),
@@ -123,7 +123,7 @@ impl RawInit {
         }
     }
 
-    pub fn flags(&self) -> Flags {
+    pub const fn flags(&self) -> Flags {
         let bits = self.flags & !0b1100;
         unsafe { Flags::from_bits_unchecked(bits) }
     }
@@ -141,7 +141,7 @@ impl RawInit {
         }
     }
 
-    pub fn event_flags(&self) -> EventFlags {
+    pub const fn event_flags(&self) -> EventFlags {
         let bits = self.event_flags & !0b11;
         unsafe { EventFlags::from_bits_unchecked(bits) }
     }
