@@ -89,32 +89,39 @@ impl Init {
 }
 
 #[derive(Error, Debug, Eq, PartialEq, Hash)]
-pub enum MarkError<'a> {
+pub enum RawMarkError {
     #[error("invalid argument specified")]
     InvalidArgument,
-    #[error("bad dir fd specified: {:?}", .0)]
-    BadDirFd(DirFd<'a>),
-    #[error("not a directory, but {:?} specified: {}", MarkFlags::ONLY_DIR, .0)]
-    NotADirectory(MarkPath<'a>),
-    #[error("path does not exist: {}", .0)]
-    PathDoesNotExist(MarkPath<'a>),
-    #[error("path is on a filesystem that doesn't support fsid and {:?} has been specified: {}", Flags::REPORT_FID, .0)]
-    PathDoesNotSupportFSID(MarkPath<'a>),
-    #[error("path is on a filesystem that doesn't support the encoding of file handles and {:?} has been specified: {}", Flags::REPORT_FID, .0)]
-    PathNotSupported(MarkPath<'a>),
-    #[error("path resides on a subvolume that uses a different fsid than its root superblock: {}", .0)]
-    PathUsesDifferentFSID(MarkPath<'a>),
-    #[error("cannot remove mark that doesn't exist yet: {}", .0)]
-    CannotRemoveNonExistentMark(MarkPath<'a>),
+    #[error("bad dir fd specified")]
+    BadDirFd,
+    #[error("not a directory, but {:?} specified", MarkFlags::ONLY_DIR)]
+    NotADirectory,
+    #[error("path does not exist")]
+    PathDoesNotExist,
+    #[error("path is on a filesystem that doesn't support fsid and {:?} has been specified", Flags::REPORT_FID)]
+    PathDoesNotSupportFSID,
+    #[error("path is on a filesystem that doesn't support the encoding of file handles and {:?} has been specified", Flags::REPORT_FID)]
+    PathNotSupported,
+    #[error("path resides on a subvolume that uses a different fsid than its root superblock")]
+    PathUsesDifferentFSID,
+    #[error("cannot remove mark that doesn't exist yet")]
+    CannotRemoveNonExistentMark,
     #[error("exceeded the per-fanotify group mark limit of 8192 and {:?} was not specified", Flags::UNLIMITED_MARKS)]
     ExceededMarkLimit,
     #[error("kernel out of memory")]
     OutOfMemory,
 }
 
+#[derive(Error, Debug, Eq, PartialEq, Hash)]
+#[error("{:?}: {:?}", .error, .mark)]
+pub struct MarkError<'a> {
+    pub error: RawMarkError,
+    pub mark: Mark<'a>,
+}
+
 impl Fanotify {
-    pub fn mark<'a>(&self, mark: Mark<'a>) -> Result<(), MarkError<'a>> {
-        use MarkError::*;
+    fn mark_raw_error(&self, mark: &Mark) -> Result<(), RawMarkError> {
+        use RawMarkError::*;
         use Errno::*;
         let init = self.init.undo_raw();
         if mark.mask.includes_permission() && init.notification_class == Notify {
@@ -126,12 +133,12 @@ impl Fanotify {
         libc_void_call(|| unsafe {
             fanotify_mark(self.fd, raw.flags, raw.mask, raw.dir_fd, raw.path_ptr())
         }).map_err(|errno| match errno {
-            EBADF => BadDirFd(mark.path.dir),
-            ENOTDIR => NotADirectory(mark.path),
-            ENOENT if mark.action == Add => PathDoesNotExist(mark.path),
-            ENODEV => PathDoesNotSupportFSID(mark.path),
-            EOPNOTSUPP => PathUsesDifferentFSID(mark.path),
-            ENOENT if mark.action == Remove => CannotRemoveNonExistentMark(mark.path),
+            EBADF => BadDirFd,
+            ENOTDIR => NotADirectory,
+            ENOENT if mark.action == Add => PathDoesNotExist,
+            ENODEV => PathDoesNotSupportFSID,
+            EOPNOTSUPP => PathUsesDifferentFSID,
+            ENOENT if mark.action == Remove => CannotRemoveNonExistentMark,
             ENOSPC => ExceededMarkLimit,
             ENOMEM => OutOfMemory,
             // EINVAL should be handled by type system and by earlier check
@@ -143,5 +150,10 @@ impl Fanotify {
                 errno,
             }),
         })
+    }
+
+    pub fn mark<'a>(&self, mark: Mark<'a>) -> Result<(), MarkError<'a>> {
+        self.mark_raw_error(&mark)
+            .map_err(|error| MarkError { error, mark })
     }
 }
