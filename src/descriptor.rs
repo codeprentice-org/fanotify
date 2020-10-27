@@ -1,11 +1,10 @@
-use crate::flags::init::{Init, RawInit, Flags};
-use crate::flags::mark::Mark;
-use crate::util::{libc_call, libc_void_call, ImpossibleError};
+use super::flags::init::{Init, RawInit, Flags, NotificationClass::Notify};
+use super::flags::mark::{Mark, DirFd, MarkPath, MarkFlags, MarkAction::{Add, Remove}};
+use super::util::{libc_call, libc_void_call, ImpossibleError};
 use libc::{fanotify_init, fanotify_mark};
 use nix::errno::Errno;
 use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd};
 use thiserror::Error;
-use crate::flags::init::NotificationClass::Notify;
 
 #[derive(Debug)]
 pub struct Fanotify {
@@ -90,15 +89,31 @@ impl Init {
 }
 
 #[derive(Error, Debug, Eq, PartialEq, Hash)]
-pub enum MarkError {
+pub enum MarkError<'a> {
     #[error("invalid argument specified")]
     InvalidArgument,
-    #[error("TODO")]
-    PathDoesntSupportFsid,
+    #[error("bad dir fd specified: {:?}", .0)]
+    BadDirFd(DirFd<'a>),
+    #[error("not a directory, but {:?} specified: {}", MarkFlags::ONLY_DIR, .0)]
+    NotADirectory(MarkPath<'a>),
+    #[error("path does not exist: {}", .0)]
+    PathDoesNotExist(MarkPath<'a>),
+    #[error("path is on a filesystem that doesn't support fsid and {:?} has been specified: {}", Flags::REPORT_FID, .0)]
+    PathDoesNotSupportFSID(MarkPath<'a>),
+    #[error("path is on a filesystem that doesn't support the encoding of file handles and {:?} has been specified: {}", Flags::REPORT_FID, .0)]
+    PathNotSupported(MarkPath<'a>),
+    #[error("path resides on a subvolume that uses a different fsid than its root superblock: {}", .0)]
+    PathUsesDifferentFSID(MarkPath<'a>),
+    #[error("cannot remove mark that doesn't exist yet: {}", .0)]
+    CannotRemoveNonExistentMark(MarkPath<'a>),
+    #[error("exceeded the per-fanotify group mark limit of 8192 and {:?} was not specified", Flags::UNLIMITED_MARKS)]
+    ExceededMarkLimit,
+    #[error("kernel out of memory")]
+    OutOfMemory,
 }
 
 impl Fanotify {
-    pub fn mark(&self, mark: Mark) -> Result<(), MarkError> {
+    pub fn mark<'a>(&self, mark: Mark<'a>) -> Result<(), MarkError<'a>> {
         use MarkError::*;
         use Errno::*;
         let init = self.init.undo_raw();
@@ -111,8 +126,17 @@ impl Fanotify {
         libc_void_call(|| unsafe {
             fanotify_mark(self.fd, raw.flags, raw.mask, raw.dir_fd, raw.path_ptr())
         }).map_err(|errno| match errno {
-            EBADF => InvalidArgument,
-            EINVAL | _ => panic!("{}", ImpossibleError {
+            EBADF => BadDirFd(mark.path.dir),
+            ENOTDIR => NotADirectory(mark.path),
+            ENOENT if mark.action == Add => PathDoesNotExist(mark.path),
+            ENODEV => PathDoesNotSupportFSID(mark.path),
+            EOPNOTSUPP => PathUsesDifferentFSID(mark.path),
+            ENOENT if mark.action == Remove => CannotRemoveNonExistentMark(mark.path),
+            ENOSPC => ExceededMarkLimit,
+            ENOMEM => OutOfMemory,
+            // EINVAL should be handled by type system and by earlier check
+            // ENOSYS should be caught be init
+            EINVAL | ENOSYS | _ => panic!("{}", ImpossibleError {
                 syscall: "fanotify_mark",
                 args: format!("{}, {}, {}, {}, {:?}",
                               self.fd, raw.flags, raw.mask, raw.dir_fd, raw.path_ptr()),

@@ -122,14 +122,16 @@ impl FromRawFd for DirFd<'_> {
     }
 }
 
-impl<'a> DirFd<'a> {
+impl DirFd<'static> {
     pub fn current_working_directory() -> Self {
         Self {
             fd: libc::AT_FDCWD,
             phantom: PhantomData,
         }
     }
+}
 
+impl<'a> DirFd<'a> {
     pub fn directory<P: AsRawFd>(dir: &'a P) -> Self {
         Self {
             fd: dir.as_raw_fd(),
@@ -168,14 +170,16 @@ pub struct MarkPath<'a> {
     pub(crate) path: Option<&'a Path>,
 }
 
-impl<'a> MarkPath<'a> {
+impl MarkPath<'static> {
     pub fn current_working_directory() -> Self {
         Self {
             dir: DirFd::current_working_directory(),
             path: None,
         }
     }
+}
 
+impl<'a> MarkPath<'a> {
     pub fn directory<P: AsRawFd>(dir: &'a P) -> Self {
         Self {
             dir: DirFd::directory(dir),
@@ -277,13 +281,13 @@ impl<'a> Mark<'a> {
         Ok(this)
     }
 
-    pub fn flush(what: MarkWhat, path: MarkPath<'a>) -> Self {
+    pub fn flush(what: MarkWhat) -> Self {
         Self {
             action: Flush,
             what,
             flags: MarkFlags::empty(),
             mask: MarkMask::all(), // ignored, but empty is invalid on add/remove
-            path,
+            path: MarkPath::current_working_directory(), // ignored, but good default with 'static lifetime
         }
     }
 }
