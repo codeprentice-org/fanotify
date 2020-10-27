@@ -177,7 +177,7 @@ impl RawInit {
 
     pub const fn flags(&self) -> Flags {
         let bits = self.flags & !0b1100;
-        unsafe { Flags::from_bits_unchecked(bits) }
+        Flags::from_bits_truncate(bits)
     }
 
     pub const fn rw(&self) -> ReadWrite {
@@ -194,7 +194,7 @@ impl RawInit {
 
     pub const fn event_flags(&self) -> EventFlags {
         let bits = self.event_flags & !0b11;
-        unsafe { EventFlags::from_bits_unchecked(bits) }
+        EventFlags::from_bits_truncate(bits)
     }
 
     pub const fn undo_raw(&self) -> Init {
