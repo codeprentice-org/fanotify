@@ -4,7 +4,6 @@ use bitflags::bitflags;
 use self::NotificationClass::{PreContent, Content, Notify};
 
 use static_assertions::const_assert_eq;
-use static_assertions::_core::hint::unreachable_unchecked;
 use self::ReadWrite::{Write, Read, ReadAndWrite};
 use std::fmt::{Debug, Display};
 use static_assertions::_core::fmt::Formatter;
@@ -18,14 +17,19 @@ pub enum NotificationClass {
     Notify = notification_class::FAN_CLASS_NOTIF,
 }
 
-impl Default for NotificationClass {
-    fn default() -> Self {
+impl NotificationClass {
+    pub const fn const_default() -> Self {
         Self::Notify
     }
 }
 
+impl Default for NotificationClass {
+    fn default() -> Self {
+        Self::const_default()
+    }
+}
+
 bitflags! {
-    #[derive(Default)]
     pub struct Flags: u32 {
         const CLOSE_ON_EXEC = flag::FAN_CLOEXEC;
         const NON_BLOCKING = flag::FAN_NONBLOCK;
@@ -39,8 +43,18 @@ bitflags! {
 }
 
 impl Flags {
+    pub const fn const_default() -> Self {
+        Self::empty()
+    }
+
     pub const fn unlimited() -> Self {
         Self::from_bits_truncate(Self::UNLIMITED_QUEUE.bits | Self::UNLIMITED_MARKS.bits)
+    }
+}
+
+impl Default for Flags {
+    fn default() -> Self {
+        Self::const_default()
     }
 }
 
@@ -52,14 +66,19 @@ pub enum ReadWrite {
     ReadAndWrite = libc::O_RDWR as u32,
 }
 
-impl Default for ReadWrite {
-    fn default() -> Self {
+impl ReadWrite {
+    pub const fn const_default() -> Self {
         Self::Read
     }
 }
 
+impl Default for ReadWrite {
+    fn default() -> Self {
+        Self::const_default()
+    }
+}
+
 bitflags! {
-    #[derive(Default)]
     pub struct EventFlags: u32 {
         const LARGE_FILE = libc::O_LARGEFILE as u32;
         const CLOSE_ON_EXEC = libc::O_CLOEXEC as u32;
@@ -71,12 +90,41 @@ bitflags! {
     }
 }
 
-#[derive(Debug, Default, Eq, PartialEq, Hash)]
+impl EventFlags {
+    pub const fn const_default() -> Self {
+        Self::empty()
+    }
+}
+
+impl Default for EventFlags {
+    fn default() -> Self {
+        Self::const_default()
+    }
+}
+
+#[derive(Debug, Eq, PartialEq, Hash)]
 pub struct Init {
     pub notification_class: NotificationClass,
     pub flags: Flags,
     pub rw: ReadWrite,
     pub event_flags: EventFlags,
+}
+
+impl Init {
+    pub const fn const_default() -> Self {
+        Self {
+            notification_class: NotificationClass::const_default(),
+            flags: Flags::const_default(),
+            rw: ReadWrite::const_default(),
+            event_flags: EventFlags::const_default(),
+        }
+    }
+}
+
+impl Default for Init {
+    fn default() -> Self {
+        Self::const_default()
+    }
 }
 
 impl Display for Init {

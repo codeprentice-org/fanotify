@@ -189,7 +189,7 @@ mod tests {
     fn init_or_catches_unsupported() {
         let args = Init {
             flags: Flags::unlimited(),
-            ..Default::default()
+            ..Init::const_default()
         };
         match args.run() {
             Ok(_fd) => {}
