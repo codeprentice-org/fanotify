@@ -52,12 +52,23 @@ pub enum MarkWhat {
 }
 
 bitflags! {
-    #[derive(Default)]
     pub struct MarkFlags: u32 {
         const DONT_FOLLOW = flag::FAN_MARK_DONT_FOLLOW;
         const ONLY_DIR = flag::FAN_MARK_ONLYDIR;
         const IGNORED_MASK = flag::FAN_MARK_IGNORED_MASK;
         const IGNORED_SURVIVE_MODIFY = flag::FAN_MARK_IGNORED_SURV_MODIFY;
+    }
+}
+
+impl MarkFlags {
+    pub const fn const_default() -> Self {
+        Self::empty()
+    }
+}
+
+impl Default for MarkFlags {
+    fn default() -> Self {
+        Self::const_default()
     }
 }
 
