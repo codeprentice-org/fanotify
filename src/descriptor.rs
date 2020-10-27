@@ -40,7 +40,7 @@ impl Fanotify {
     }
 }
 
-#[derive(Error, Debug, Eq, PartialEq)]
+#[derive(Error, Debug, Eq, PartialEq, Hash)]
 pub enum InitError {
     #[error("invalid argument specified")]
     InvalidArgument,
@@ -89,7 +89,7 @@ impl Init {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Eq, PartialEq, Hash)]
 pub enum MarkError {
     #[error("invalid argument specified")]
     InvalidArgument,

@@ -1,4 +1,4 @@
-use super::libc::*;
+use super::libc::init::{notification_class, flag};
 
 use bitflags::bitflags;
 use self::NotificationClass::{PreContent, Content, Notify};
@@ -13,9 +13,9 @@ use std::fmt;
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(u32)]
 pub enum NotificationClass {
-    PreContent = FAN_CLASS_PRE_CONTENT as u32,
-    Content = FAN_CLASS_CONTENT as u32,
-    Notify = FAN_CLASS_NOTIF as u32,
+    PreContent = notification_class::FAN_CLASS_PRE_CONTENT,
+    Content = notification_class::FAN_CLASS_CONTENT,
+    Notify = notification_class::FAN_CLASS_NOTIF,
 }
 
 impl Default for NotificationClass {
@@ -27,14 +27,14 @@ impl Default for NotificationClass {
 bitflags! {
     #[derive(Default)]
     pub struct Flags: u32 {
-        const CLOSE_ON_EXEC = FAN_CLOEXEC;
-        const NON_BLOCKING = FAN_NONBLOCK;
-        const UNLIMITED_QUEUE = FAN_UNLIMITED_QUEUE;
-        const UNLIMITED_MARKS = FAN_UNLIMITED_MARKS;
-        const REPORT_TID = FAN_REPORT_TID;
-        const REPORT_FID = FAN_REPORT_FID;
-        const REPORT_DIR_FID = FAN_REPORT_DIR_FID;
-        const REPORT_NAME = FAN_REPORT_NAME;
+        const CLOSE_ON_EXEC = flag::FAN_CLOEXEC;
+        const NON_BLOCKING = flag::FAN_NONBLOCK;
+        const UNLIMITED_QUEUE = flag::FAN_UNLIMITED_QUEUE;
+        const UNLIMITED_MARKS = flag::FAN_UNLIMITED_MARKS;
+        const REPORT_TID = flag::FAN_REPORT_TID;
+        const REPORT_FID = flag::FAN_REPORT_FID;
+        const REPORT_DIR_FID = flag::FAN_REPORT_DIR_FID;
+        const REPORT_NAME = flag::FAN_REPORT_NAME;
     }
 }
 
