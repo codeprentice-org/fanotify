@@ -110,17 +110,21 @@ impl Init {
 }
 
 impl RawInit {
-    pub fn notification_class(&self) -> NotificationClass {
+    pub const fn notification_class(&self) -> NotificationClass {
         const_assert_eq!(PreContent as u32, 0b1000);
         const_assert_eq!(Content as u32, 0b0100);
         const_assert_eq!(Notify as u32, 0b0000);
-        match (self.flags & 0b1111) >> 2 {
-            0b10 => PreContent,
-            0b01 => Content,
-            0b00 => Notify,
-            0b11 => unsafe { unreachable_unchecked() },
-            _ => unsafe { unreachable_unchecked() }, // definitely can't happen
-        }
+
+        const_assert_eq!(PreContent as u32, 2 << 2);
+        const_assert_eq!(Content as u32, 1 << 2);
+        const_assert_eq!(Notify as u32, 0 << 2);
+
+        [
+            Notify,
+            Content,
+            PreContent,
+            Notify, // unsafe
+        ][((self.flags & 0b1111) >> 2) as usize]
     }
 
     pub const fn flags(&self) -> Flags {
@@ -128,17 +132,16 @@ impl RawInit {
         unsafe { Flags::from_bits_unchecked(bits) }
     }
 
-    pub fn rw(&self) -> ReadWrite {
+    pub const fn rw(&self) -> ReadWrite {
         const_assert_eq!(Read as u32, 0);
         const_assert_eq!(Write as u32, 1);
         const_assert_eq!(ReadAndWrite as u32, 2);
-        match self.event_flags & 0b11 {
-            0 => Read,
-            1 => Write,
-            2 => ReadAndWrite,
-            3 => unreachable!(), // less sure of this
-            _ => unsafe { unreachable_unchecked() }, // definitely can't happen
-        }
+        [
+            Read,
+            Write,
+            ReadAndWrite,
+            Read, // unsafe
+        ][(self.event_flags & 0b11) as usize]
     }
 
     pub const fn event_flags(&self) -> EventFlags {
@@ -146,7 +149,7 @@ impl RawInit {
         unsafe { EventFlags::from_bits_unchecked(bits) }
     }
 
-    pub fn undo_raw(&self) -> Init {
+    pub const fn undo_raw(&self) -> Init {
         Init {
             notification_class: self.notification_class(),
             flags: self.flags(),
