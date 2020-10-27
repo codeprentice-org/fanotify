@@ -95,7 +95,7 @@ impl Init {
 #[test]
 fn catches_unsupported() {
     let args = Init {
-        flags: Flags::unlimited() | Flags::REPORT_FID,
+        flags: Flags::unlimited(),
         ..Default::default()
     };
     match args.run() {
