@@ -5,6 +5,8 @@ use libc::{fanotify_init, fanotify_mark};
 use nix::errno::Errno;
 use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd};
 use thiserror::Error;
+use crate::flags::mark::{MarkOne, MarkMask, MarkOneAction};
+use crate::flags::mark::MarkWhat::FileSystem;
 
 #[derive(Debug)]
 pub struct Fanotify {
@@ -100,7 +102,7 @@ impl Init {
 }
 
 #[test]
-fn catches_unsupported() {
+fn init_or_catches_unsupported() {
     let args = Init {
         flags: Flags::unlimited(),
         ..Default::default()
@@ -111,7 +113,6 @@ fn catches_unsupported() {
             assert_eq!(e, InitError::FanotifyUnsupported);
         }
     }
-    assert_eq!(2 + 2, 4);
 }
 
 #[derive(Error, Debug, Eq, PartialEq, Hash)]
@@ -190,4 +191,27 @@ impl Fanotify {
         self.mark_raw_error(&mark)
             .map_err(|error| MarkError { error, mark })
     }
+}
+
+#[test]
+fn init_and_mark() {
+    let args = Init {
+        flags: Flags::unlimited(),
+        ..Default::default()
+    };
+    let fanotify = match args.run() {
+        Ok(fanotify) => fanotify,
+        Err(e) => {
+            assert_eq!(e, InitError::FanotifyUnsupported);
+            return;
+        }
+    };
+    let mark = Mark::one(MarkOne {
+        action: MarkOneAction::Add,
+        what: FileSystem,
+        flags: MarkFlags::empty(),
+        mask: MarkMask::OPEN | MarkMask::close(),
+        path: MarkPath::current_working_directory(),
+    }).unwrap();
+    fanotify.mark(mark).unwrap();
 }
