@@ -88,6 +88,21 @@ impl Init {
     }
 }
 
+#[test]
+fn catches_unsupported() {
+    let args = Init {
+        flags: Flags::unlimited() | Flags::REPORT_FID,
+        ..Default::default()
+    };
+    match args.run() {
+        Ok(_fd) => {}
+        Err(e) => {
+            assert_eq!(e, InitError::Unsupported);
+        }
+    }
+    assert_eq!(2 + 2, 4);
+}
+
 #[derive(Error, Debug, Eq, PartialEq, Hash)]
 pub enum RawMarkError {
     #[error("invalid argument specified")]
