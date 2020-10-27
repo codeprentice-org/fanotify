@@ -51,8 +51,10 @@ pub enum InitError {
     OutOfMemory,
     #[error("user does not have the required CAP_SYS_ADMIN capability")]
     PermissionDenied,
-    #[error("the kernel does not support fanotify_init()")]
-    Unsupported,
+    #[error("the kernel does not support the fanotify_init() syscall")]
+    FanotifyUnsupported,
+    #[error("the kernel does not support a certain feature for fanotify_init()")]
+    FeatureUnsupported,
 }
 
 impl RawInit {
@@ -72,8 +74,13 @@ impl RawInit {
                 ENFILE => ExceededOpenFileDescriptorPerProcessLimit,
                 ENOMEM => OutOfMemory,
                 EPERM => PermissionDenied,
-                ENOSYS => Unsupported,
-                EINVAL | _ => panic!("{}", ImpossibleError {
+                ENOSYS => FanotifyUnsupported,
+                // ruled out EINVAL for fully supported kernel
+                // and ENOSYS is returned if fanotify_init() is not supported at all
+                // so this must mean only certain features are supported,
+                // like on WSL 2, where Flags::REPORT_FID results in an EINVAL
+                EINVAL => FeatureUnsupported,
+                _ => panic!("{}", ImpossibleError {
                     syscall: "fanotify_init",
                     args: format!(
                         "flags = {}, event_flags = {}; init = {}",
@@ -101,7 +108,7 @@ fn catches_unsupported() {
     match args.run() {
         Ok(_fd) => {}
         Err(e) => {
-            assert_eq!(e, InitError::Unsupported);
+            assert_eq!(e, InitError::FanotifyUnsupported);
         }
     }
     assert_eq!(2 + 2, 4);
@@ -129,6 +136,8 @@ pub enum RawMarkError {
     ExceededMarkLimit,
     #[error("kernel out of memory")]
     OutOfMemory,
+    #[error("the kernel does not support a certain feature for fanotify_init()")]
+    FeatureUnsupported,
 }
 
 #[derive(Error, Debug, Eq, PartialEq, Hash)]
@@ -160,9 +169,12 @@ impl Fanotify {
             ENOENT if mark.action == Remove => CannotRemoveNonExistentMark,
             ENOSPC => ExceededMarkLimit,
             ENOMEM => OutOfMemory,
-            // EINVAL should be handled by type system and by earlier check
+            // ruled out EINVAL for fully supported kernel
+            // and ENOSYS is returned if fanotify_init() is not supported at all
+            // so this must mean only certain features are supported
+            EINVAL => FeatureUnsupported,
             // ENOSYS should be caught be init
-            EINVAL | ENOSYS | _ => panic!("{}", ImpossibleError {
+            ENOSYS | _ => panic!("{}", ImpossibleError {
                 syscall: "fanotify_mark",
                 args: format!(
                     "fd = {}, flags = {}, mask = {}, dir_fd = {}, path = {:?}; mark = {}",
