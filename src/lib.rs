@@ -2,7 +2,7 @@ pub mod flags;
 pub mod descriptor;
 mod util;
 
-#[cfg(test)]
-mod tests {
+pub use descriptor::{Fanotify, InitError, RawMarkError, MarkError};
 
-}
+#[cfg(test)]
+mod tests {}
