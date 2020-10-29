@@ -200,6 +200,7 @@ impl Fanotify {
 mod tests {
     use std::error::Error;
     use std::mem;
+    use std::path::Path;
 
     use static_assertions::_core::ptr::slice_from_raw_parts_mut;
 
@@ -260,7 +261,10 @@ mod tests {
                     mem::size_of::<fanotify_event_metadata>() * buf.len(),
                 )
             })?;
-            assert_eq!(format!("{:?}", &buf[0]), "");
+            let path = Path::new("/proc/self/fd")
+                .join(buf[0].fd.to_string())
+                .read_link()?;
+            assert_eq!(format!("{}", path.display()), "");
             Ok(())
         });
     }

@@ -77,13 +77,13 @@ pub mod read {
     #[derive(Debug, Default)]
     #[repr(C)]
     pub struct fanotify_event_metadata {
-        event_len: u32,
-        vers: u8,
-        _reserved: u8,
-        metadata_len: u16,
-        mask: u64,
-        fd: i32,
-        pid: i32,
+        pub event_len: u32,
+        pub vers: u8,
+        pub _reserved: u8,
+        pub metadata_len: u16,
+        pub mask: u64,
+        pub fd: i32,
+        pub pid: i32,
     }
 }
 
