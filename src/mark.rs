@@ -1,18 +1,20 @@
-use bitflags::bitflags;
-
-use super::libc::mark::{action, what, flag, mask};
-use self::MarkAction::Flush;
-use self::StaticMarkError::EmptyMask;
-use std::ffi::CString;
-use std::os::raw::c_char;
-use std::os::unix::ffi::OsStringExt;
-use std::os::unix::io::{AsRawFd, RawFd, IntoRawFd, FromRawFd};
-use std::path::Path;
-use thiserror::Error;
 use std::borrow::Cow;
-use std::fmt::{Display, Formatter, Debug};
+use std::ffi::CString;
+use std::fmt::{Debug, Display, Formatter};
 use std::fmt;
 use std::marker::PhantomData;
+use std::os::raw::c_char;
+use std::os::unix::ffi::OsStringExt;
+use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use std::path::Path;
+
+use bitflags::bitflags;
+use thiserror::Error;
+
+use super::libc::mark::{action, flag, mask, what};
+
+use self::MarkAction::Flush;
+use self::StaticMarkError::EmptyMask;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum MarkOneAction {
@@ -407,9 +409,10 @@ impl<'a> Mark<'a> {
 mod tests {
     use std::fs::File;
     use std::path::Path;
-    use crate::flags::mark::{MarkOne, Mark, MarkFlags, MarkMask, MarkPath, StaticMarkError};
-    use crate::flags::mark::MarkOneAction::Add;
-    use crate::flags::mark::MarkWhat::{MountPoint, FileSystem};
+
+    use crate::mark::{Mark, MarkFlags, MarkMask, MarkOne, MarkPath, StaticMarkError};
+    use crate::mark::MarkOneAction::Add;
+    use crate::mark::MarkWhat::{FileSystem, MountPoint};
 
     #[test]
     fn mark_static_error() {

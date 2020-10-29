@@ -1,13 +1,14 @@
-use super::libc::init::{notification_class, flag};
+use std::fmt::{Debug, Display};
+use std::fmt;
 
 use bitflags::bitflags;
-use self::NotificationClass::{PreContent, Content, Notify};
-
-use static_assertions::const_assert_eq;
-use self::ReadWrite::{Write, Read, ReadAndWrite};
-use std::fmt::{Debug, Display};
 use static_assertions::_core::fmt::Formatter;
-use std::fmt;
+use static_assertions::const_assert_eq;
+
+use super::libc::init::{flag, notification_class};
+
+use self::NotificationClass::{Content, Notify, PreContent};
+use self::ReadWrite::{Read, ReadAndWrite, Write};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(u32)]
@@ -216,7 +217,7 @@ impl Display for RawInit {
 
 #[cfg(test)]
 mod tests {
-    use crate::flags::init::{Init, Flags};
+    use crate::init::{Flags, Init};
 
     #[test]
     fn init_display_debug() {

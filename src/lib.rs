@@ -1,8 +1,8 @@
-pub mod flags;
-pub mod descriptor;
+mod libc;
 mod util;
-
-pub use descriptor::{Fanotify, InitError, RawMarkError, MarkError};
+pub mod init;
+pub mod mark;
+pub mod descriptor;
 
 #[cfg(test)]
 mod tests {}

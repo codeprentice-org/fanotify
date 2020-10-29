@@ -1,10 +1,12 @@
-use super::flags::init::{Init, RawInit, Flags, NotificationClass::Notify};
-use super::flags::mark::{Mark, MarkFlags, MarkAction::{Add, Remove}};
-use super::util::{libc_call, libc_void_call, ImpossibleError};
+use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd};
+
 use libc::{fanotify_init, fanotify_mark};
 use nix::errno::Errno;
-use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd};
 use thiserror::Error;
+
+use super::init::{Flags, Init, NotificationClass::Notify, RawInit};
+use super::mark::{Mark, MarkAction::{Add, Remove}, MarkFlags};
+use super::util::{ImpossibleError, libc_call, libc_void_call};
 
 #[derive(Debug)]
 pub struct Fanotify {
@@ -179,11 +181,11 @@ impl Fanotify {
 
 #[cfg(test)]
 mod tests {
-    use crate::flags::init::{Init, Flags};
-    use crate::InitError;
-    use crate::flags::mark::{Mark, MarkOne, MarkMask, MarkPath, MarkFlags};
-    use crate::flags::mark::MarkOneAction::Add;
-    use crate::flags::mark::MarkWhat::MountPoint;
+    use crate::descriptor::InitError;
+    use crate::init::{Flags, Init};
+    use crate::mark::{Mark, MarkFlags, MarkMask, MarkOne, MarkPath};
+    use crate::mark::MarkOneAction::Add;
+    use crate::mark::MarkWhat::MountPoint;
 
     #[test]
     fn init_or_catches_unsupported() {
