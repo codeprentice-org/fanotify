@@ -73,6 +73,20 @@ pub mod mark {
     }
 }
 
+pub mod read {
+    #[derive(Debug, Default)]
+    #[repr(C)]
+    pub struct fanotify_event_metadata {
+        event_len: u32,
+        vers: u8,
+        _reserved: u8,
+        metadata_len: u16,
+        mask: u64,
+        fd: i32,
+        pid: i32,
+    }
+}
+
 // etc.
 pub const FANOTIFY_METADATA_VERSION: u32 = 3;
 pub const FAN_EVENT_INFO_TYPE_FID: u32 = 1;
