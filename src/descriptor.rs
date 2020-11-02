@@ -140,13 +140,13 @@ mod tests {
     
     use static_assertions::_core::ptr::slice_from_raw_parts_mut;
     
-    use crate::descriptor::{Fanotify, InitError};
     use crate::init::{Flags, Init};
     use crate::libc::read::fanotify_event_metadata;
-    use crate::mark;
+    use crate::{mark, init};
     use crate::mark::Mark;
     use crate::mark::OneAction::Add;
     use crate::mark::What::MountPoint;
+    use crate::descriptor::Fanotify;
     
     const fn get_init() -> Init {
         Init {
@@ -159,7 +159,7 @@ mod tests {
         match get_init().run() {
             Ok(fanotify) => f(fanotify).unwrap(),
             Err(e) => {
-                assert_eq!(e, InitError::FanotifyUnsupported);
+                assert_eq!(e, init::Error::FanotifyUnsupported);
             }
         }
     }
@@ -173,7 +173,7 @@ mod tests {
         Mark::one(mark::One {
             action: Add,
             what: MountPoint,
-            flags: MarkFlags::empty(),
+            flags: mark::Flags::empty(),
             mask: mark::Mask::OPEN | mark::Mask::close(),
             path: mark::Path::absolute("/home"),
         }).unwrap()
@@ -192,7 +192,7 @@ mod tests {
         with_fanotify(|fanotify| {
             fanotify.mark(get_mark())?;
             let mut buf = [fanotify_event_metadata::default(); 1];
-            fanotify.read_raw(unsafe {
+            fanotify.fd.read(unsafe {
                 &mut *slice_from_raw_parts_mut(
                     buf.as_mut_ptr() as *mut u8,
                     mem::size_of::<fanotify_event_metadata>() * buf.len(),
