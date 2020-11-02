@@ -188,7 +188,7 @@ mod tests {
     }
     
     #[test]
-    fn init_mark_and_read() {
+    fn init_mark_and_raw_read() {
         with_fanotify(|fanotify| {
             fanotify.mark(get_mark())?;
             let mut buf = [fanotify_event_metadata {
@@ -210,6 +210,21 @@ mod tests {
                 .join(buf[0].fd.to_string())
                 .read_link()?;
             assert_eq!(format!("{}", path.display()), "/usr/bin/ls");
+            Ok(())
+        });
+    }
+    
+    #[test]
+    fn init_mark_and_read() {
+        with_fanotify(|fanotify| {
+            fanotify.mark(get_mark())?;
+            let mut buf = Vec::with_capacity(4096);
+            let mut events = fanotify.read(&mut buf)?;
+            while let Some(event) = events.next() {
+                let event = event?;
+                let path = event.file.fd().unwrap().fd.path()?;
+                assert_eq!(format!("{}", path.display()), "/usr/bin/ls");
+            }
             Ok(())
         });
     }

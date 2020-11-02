@@ -1,4 +1,4 @@
-use std::{cmp, fmt, mem};
+use std::{cmp, fmt, mem, io};
 use std::fmt::{Display, Formatter};
 use std::os::raw::c_void;
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
@@ -7,6 +7,7 @@ use libc;
 use nix::errno::Errno;
 
 use super::util::libc_call;
+use std::path::{PathBuf, Path};
 
 #[derive(Eq, PartialEq, Hash, Debug)]
 pub struct FD {
@@ -64,6 +65,12 @@ impl FD {
         let buf = buf.as_ptr() as *const c_void;
         let bytes_written = libc_call(|| unsafe { libc::write(self.fd, buf, len) })?;
         Ok(bytes_written as usize)
+    }
+    
+    pub fn path(&self) -> io::Result<PathBuf> {
+        Path::new("/proc/self/fd")
+            .join(self.fd.to_string())
+            .read_link()
     }
 }
 
