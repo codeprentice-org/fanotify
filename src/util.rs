@@ -39,7 +39,7 @@ pub fn libc_void_call<T: ZeroOne + Copy + Eq + Neg<Output=T>, F: FnOnce() -> T>(
 
 #[derive(Error, Debug)]
 #[error("impossible error in syscall {}({}): {:?}", .syscall, .args, .errno)]
-pub struct ImpossibleError {
+pub struct ImpossibleSysCallError {
     pub syscall: &'static str,
     pub args: String,
     pub errno: Errno,

@@ -64,7 +64,7 @@ pub mod mark {
         pub const FAN_DELETE_SELF: u64 = 0x00000400;
         pub const FAN_MOVE_SELF: u64 = 0x00000800;
         pub const FAN_OPEN_EXEC: u64 = 0x00001000;
-        pub const FAN_Q_OVERFLOW: u32 = 0x00004000;
+        pub const FAN_Q_OVERFLOW: u64 = 0x00004000;
         pub const FAN_OPEN_PERM: u64 = 0x00010000;
         pub const FAN_ACCESS_PERM: u64 = 0x00020000;
         pub const FAN_OPEN_EXEC_PERM: u64 = 0x00040000;
@@ -74,24 +74,60 @@ pub mod mark {
 }
 
 pub mod read {
-    #[derive(Debug, Default)]
+    #[allow(non_camel_case_types)]
+    #[derive(Debug, Default)] // TODO remove Debug, Default
     #[repr(C)]
     pub struct fanotify_event_metadata {
         pub event_len: u32,
         pub vers: u8,
-        pub _reserved: u8,
+        pub reserved: u8,
         pub metadata_len: u16,
         pub mask: u64,
         pub fd: i32,
         pub pid: i32,
     }
+
+    #[allow(non_camel_case_types)]
+    #[repr(C)]
+    pub struct fanotify_event_info_header {
+        pub info_type: u8,
+        pub pad: u8,
+        pub len: u16,
+    }
+
+    #[allow(non_camel_case_types)]
+    #[repr(C)]
+    pub struct fanotify_event_file_handle {
+        // TODO am I doing the variable sized type from C right here?
+        opaque: [libc::c_char; 0], // C VLA
+    }
+
+    #[allow(non_camel_case_types)]
+    #[repr(C)]
+    pub struct fanotify_event_info_fid {
+        pub hdr: fanotify_event_info_header,
+        pub fsid: libc::fsid_t,
+        pub handle: fanotify_event_file_handle,
+    }
+
+    pub const FANOTIFY_METADATA_VERSION: u8 = 3;
+
+    pub const FAN_NOFD: i32 = -1;
+
+    pub const FAN_EVENT_INFO_TYPE_FID: u8 = 1;
+    pub const FAN_EVENT_INFO_TYPE_DFID_NAME: u8 = 2;
+    pub const FAN_EVENT_INFO_TYPE_DFID: u8 = 3;
 }
 
-// etc.
-pub const FANOTIFY_METADATA_VERSION: u32 = 3;
-pub const FAN_EVENT_INFO_TYPE_FID: u32 = 1;
-pub const FAN_EVENT_INFO_TYPE_DFID_NAME: u32 = 2;
-pub const FAN_EVENT_INFO_TYPE_DFID: u32 = 3;
-pub const FAN_ALLOW: u32 = 0x01;
-pub const FAN_DENY: u32 = 0x02;
-pub const FAN_AUDIT: u32 = 0x10;
+pub mod write {
+    #[allow(non_camel_case_types)]
+    #[repr(C)]
+    pub struct fanotify_response {
+        pub fd: i32,
+        pub response: u32,
+    }
+
+    pub const FAN_ALLOW: u32 = 0x01;
+    pub const FAN_DENY: u32 = 0x02;
+    pub const FAN_AUDIT: u32 = 0x10;
+}

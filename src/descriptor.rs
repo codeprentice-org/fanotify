@@ -1,51 +1,40 @@
-use std::{cmp, mem};
-use std::os::raw::c_void;
-use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd};
+use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd, FromRawFd};
 
 use nix::errno::Errno;
 use thiserror::Error;
 
-use crate::read::RawEvent;
+use crate::common::FD;
+use crate::event::{EventBuffer, Events};
 
 use super::init::{Flags, Init, NotificationClass::Notify, RawInit};
 use super::mark::{Mark, MarkAction::{Add, Remove}, MarkFlags};
-use super::util::{ImpossibleError, libc_call, libc_void_call};
+use super::util::{ImpossibleSysCallError, libc_call, libc_void_call};
 
 #[derive(Debug)]
 pub struct Fanotify {
-    fd: RawFd,
-    init: RawInit,
-}
-
-impl Drop for Fanotify {
-    fn drop(&mut self) {
-        // Note that errors are ignored when closing a file descriptor. The
-        // reason for this is that if an error occurs we don't actually know if
-        // the file descriptor was closed or not, and if we retried (for
-        // something like EINTR), we might close another valid file descriptor
-        // opened after we closed ours.
-        let _ = unsafe { libc::close(self.fd) };
-    }
+    pub(crate) fd: FD,
+    pub(crate) init: RawInit,
 }
 
 impl AsRawFd for Fanotify {
     fn as_raw_fd(&self) -> RawFd {
-        self.fd
+        self.fd.as_raw_fd()
     }
 }
 
 impl IntoRawFd for Fanotify {
     fn into_raw_fd(self) -> RawFd {
-        let fd = self.fd;
-        mem::forget(self); // need to skip closing the fd
-        fd
+        self.fd.into_raw_fd()
     }
 }
 
 // can't impl FromRawFd, but this provides equivalent functionality
 impl Fanotify {
     pub unsafe fn from_raw_fd(fd: RawFd, init: RawInit) -> Self {
-        Self { fd, init }
+        Self {
+            fd: FD::from_raw_fd(fd),
+            init,
+        }
     }
 }
 
@@ -65,6 +54,8 @@ pub enum InitError {
     FanotifyUnsupported,
     #[error("the kernel does not support a certain feature for fanotify_init()")]
     FeatureUnsupported,
+    #[error("received an invalid fd: {}", .fd)]
+    InvalidFd { fd: FD },
 }
 
 impl RawInit {
@@ -78,7 +69,6 @@ impl RawInit {
         }
 
         libc_call(|| unsafe { libc::fanotify_init(self.flags, self.event_flags) })
-            .map(|fd| Fanotify { fd, init: self })
             .map_err(|errno| match errno {
                 EMFILE => ExceededFanotifyGroupPerProcessLimit,
                 ENFILE => ExceededOpenFileDescriptorPerProcessLimit,
@@ -90,7 +80,7 @@ impl RawInit {
                 // so this must mean only certain features are supported,
                 // like on WSL 2, where Flags::REPORT_FID results in an EINVAL
                 EINVAL => FeatureUnsupported,
-                _ => panic!("{}", ImpossibleError {
+                _ => panic!("{}", ImpossibleSysCallError {
                     syscall: "fanotify_init",
                     args: format!(
                         "flags = {}, event_flags = {}; init = {}",
@@ -100,6 +90,9 @@ impl RawInit {
                     errno,
                 }),
             })
+            .map(|fd| unsafe { FD::from_raw_fd(fd) })
+            .and_then(|fd| if fd.check() { Ok(fd) } else { Err(InvalidFd { fd }) })
+            .map(|fd| Fanotify { fd, init: self })
     }
 }
 
@@ -154,7 +147,7 @@ impl Fanotify {
         }
         let raw = mark.to_raw();
         libc_void_call(|| unsafe {
-            libc::fanotify_mark(self.fd, raw.flags, raw.mask, raw.dir_fd, raw.path_ptr())
+            libc::fanotify_mark(self.fd.as_raw_fd(), raw.flags, raw.mask, raw.dir_fd, raw.path_ptr())
         }).map_err(|errno| match errno {
             EBADF => BadDirFd { fd: mark.path.dir.as_raw_fd() },
             ENOTDIR => NotADirectory,
@@ -169,7 +162,7 @@ impl Fanotify {
             // so this must mean only certain features are supported
             EINVAL => FeatureUnsupported,
             // ENOSYS should be caught be init
-            ENOSYS | _ => panic!("{}", ImpossibleError {
+            ENOSYS | _ => panic!("{}", ImpossibleSysCallError {
                 syscall: "fanotify_mark",
                 args: format!(
                     "fd = {}, flags = {}, mask = {}, dir_fd = {}, path = {:?}; mark = {}",
@@ -188,11 +181,8 @@ impl Fanotify {
 }
 
 impl Fanotify {
-    pub fn read_raw(&self, buf: &mut [u8]) -> Result<usize, Errno> {
-        let len = cmp::min(buf.len(), libc::ssize_t::MAX as usize) as libc::size_t;
-        let buf = buf.as_mut_ptr() as *mut c_void;
-        let bytes_read = libc_call(|| unsafe { libc::read(self.fd, buf, len) })?;
-        Ok(bytes_read as usize)
+    pub fn read<'a>(&'a self, buffer: &'a mut EventBuffer) -> Result<Events<'a>, Errno> {
+        Events::read(self, buffer)
     }
 }
 
@@ -264,7 +254,7 @@ mod tests {
             let path = Path::new("/proc/self/fd")
                 .join(buf[0].fd.to_string())
                 .read_link()?;
-            assert_eq!(format!("{}", path.display()), "");
+            assert_eq!(format!("{}", path.display()), "/usr/bin/ls");
             Ok(())
         });
     }
