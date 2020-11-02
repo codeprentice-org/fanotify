@@ -6,16 +6,14 @@ use std::os::unix::io::{AsRawFd, FromRawFd};
 use nix::errno::Errno;
 use nix::unistd::{getpid, gettid, Pid};
 use static_assertions::const_assert;
-use thiserror::Error;
 use to_trait::To;
 
-use crate::common::FD;
-use crate::descriptor::Fanotify;
-use crate::init;
-use crate::libc::mark::mask::FAN_Q_OVERFLOW;
-use crate::libc::read::{FAN_EVENT_INFO_TYPE_DFID, FAN_EVENT_INFO_TYPE_DFID_NAME, FAN_EVENT_INFO_TYPE_FID, FAN_NOFD, fanotify_event_file_handle, fanotify_event_info_fid, fanotify_event_info_header, fanotify_event_metadata, FANOTIFY_METADATA_VERSION};
-use crate::libc::write::{FAN_ALLOW, FAN_AUDIT, FAN_DENY, fanotify_response};
-use crate::mark::MarkMask;
+use super::{init, mark};
+use super::common::FD;
+use super::descriptor::Fanotify;
+use super::libc::mark::mask::FAN_Q_OVERFLOW;
+use super::libc::read::{FAN_EVENT_INFO_TYPE_DFID, FAN_EVENT_INFO_TYPE_DFID_NAME, FAN_EVENT_INFO_TYPE_FID, FAN_NOFD, fanotify_event_file_handle, fanotify_event_info_fid, fanotify_event_info_header, fanotify_event_metadata, FANOTIFY_METADATA_VERSION};
+use super::libc::write::{FAN_ALLOW, FAN_AUDIT, FAN_DENY, fanotify_response};
 
 use self::PermissionDecision::{Allow, Deny};
 
@@ -64,7 +62,7 @@ impl EventId {
     }
 }
 
-pub struct EventFileFD {
+pub struct FileFD {
     pub fd: FD,
 }
 
@@ -75,17 +73,17 @@ pub struct FileSystemId {
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 #[repr(u8)]
-pub enum EventInfoType {
+pub enum InfoType {
     Fid = FAN_EVENT_INFO_TYPE_FID,
     DFidName = FAN_EVENT_INFO_TYPE_DFID_NAME,
     DFid = FAN_EVENT_INFO_TYPE_DFID,
 }
 
-impl TryFrom<u8> for EventInfoType {
+impl TryFrom<u8> for InfoType {
     type Error = u8;
     
-    fn try_from(value: u8) -> Result<Self, Self::Error> {
-        use EventInfoType::*;
+    fn try_from(value: u8) -> std::result::Result<Self, Self::Error> {
+        use InfoType::*;
         let this = match value {
             FAN_EVENT_INFO_TYPE_FID => Fid,
             FAN_EVENT_INFO_TYPE_DFID_NAME => DFidName,
@@ -96,9 +94,9 @@ impl TryFrom<u8> for EventInfoType {
     }
 }
 
-impl From<EventInfoType> for u8 {
-    fn from(this: EventInfoType) -> Self {
-        use EventInfoType::*;
+impl From<InfoType> for u8 {
+    fn from(this: InfoType) -> Self {
+        use InfoType::*;
         match this {
             Fid => FAN_EVENT_INFO_TYPE_FID,
             DFidName => FAN_EVENT_INFO_TYPE_DFID_NAME,
@@ -117,8 +115,8 @@ impl FileHandle<'_> {
     }
 }
 
-pub struct EventFileFID<'a> {
-    pub info_type: EventInfoType,
+pub struct FileFID<'a> {
+    pub info_type: InfoType,
     pub fsid: FileSystemId,
     pub handle: FileHandle<'a>,
 }
@@ -146,14 +144,14 @@ impl From<PermissionDecision> for u32 {
     }
 }
 
-pub struct EventFilePermission<'a> {
+pub struct FilePermission<'a> {
     pub fd: FD,
     pub decision: PermissionDecision,
     pub audit: bool,
     response: &'a mut fanotify_response,
 }
 
-impl EventFilePermission<'_> {
+impl FilePermission<'_> {
     fn response(&self) -> fanotify_response {
         let audit = self.audit as u32 * FAN_AUDIT;
         fanotify_response {
@@ -164,13 +162,13 @@ impl EventFilePermission<'_> {
 }
 
 // make sure the permission write always goes through
-impl Drop for EventFilePermission<'_> {
+impl Drop for FilePermission<'_> {
     fn drop(&mut self) {
         *self.response = self.response();
     }
 }
 
-impl EventFilePermission<'_> {
+impl FilePermission<'_> {
     pub fn allow(&mut self) {
         self.decision = Allow;
     }
@@ -180,28 +178,28 @@ impl EventFilePermission<'_> {
     }
 }
 
-pub enum EventFile<'a> {
-    FD(EventFileFD),
-    FID(EventFileFID<'a>),
-    Permission(EventFilePermission<'a>),
+pub enum File<'a> {
+    FD(FileFD),
+    FID(FileFID<'a>),
+    Permission(FilePermission<'a>),
 }
 
-impl<'a> EventFile<'a> {
-    pub fn fd(self) -> Option<EventFileFD> {
+impl<'a> File<'a> {
+    pub fn fd(self) -> Option<FileFD> {
         match self {
             Self::FD(file) => Some(file),
             _ => None,
         }
     }
     
-    pub fn fid(self) -> Option<EventFileFID<'a>> {
+    pub fn fid(self) -> Option<FileFID<'a>> {
         match self {
             Self::FID(file) => Some(file),
             _ => None,
         }
     }
     
-    pub fn permission(self) -> Option<EventFilePermission<'a>> {
+    pub fn permission(self) -> Option<FilePermission<'a>> {
         match self {
             Self::Permission(file) => Some(file),
             _ => None,
@@ -210,9 +208,9 @@ impl<'a> EventFile<'a> {
 }
 
 pub struct Event<'a> {
-    pub mask: MarkMask,
+    pub mask: mark::Mask,
     pub id: EventId,
-    pub file: EventFile<'a>,
+    pub file: File<'a>,
 }
 
 pub struct Events<'a> {
@@ -227,7 +225,7 @@ impl<'a> Events<'a> {
     pub(crate) fn read(
         fanotify: &'a Fanotify,
         buffer: &'a mut Vec<u8>,
-    ) -> Result<Self, Errno> {
+    ) -> std::result::Result<Self, Errno> {
         buffer.clear();
         
         // want to use this, but it's unstable
@@ -258,7 +256,7 @@ impl<'a> Events<'a> {
     }
 }
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum WhatIsTooShort {
     #[error("u32 fanotify_event_metadata::event_len field")]
     EventLenField,
@@ -272,8 +270,8 @@ pub enum WhatIsTooShort {
     FidEvent,
 }
 
-#[derive(Error, Debug)]
-pub enum EventError {
+#[derive(thiserror::Error, Debug)]
+pub enum Error {
     #[error("the fanotify queue overflowed")]
     QueueOverflowed,
     #[error("the fanotify event has the wrong version so it can't be handled")]
@@ -298,7 +296,7 @@ pub enum EventError {
     InvalidFd { fd: FD },
 }
 
-pub type EventResult<'a> = Result<Event<'a>, EventError>;
+pub type Result<'a> = std::result::Result<Event<'a>, Error>;
 
 impl<'a> Events<'a> {
     /// Return the next &mut fanotify_response for writing the response to.
@@ -318,13 +316,13 @@ impl<'a> Events<'a> {
         response
     }
     
-    fn next_unchecked(&mut self) -> EventResult<'a> {
+    fn next_unchecked(&mut self) -> Result<'a> {
         use WhatIsTooShort::*;
-        use EventError::*;
+        use Error::*;
         
         let remaining = &self.buffer.as_slice()[self.read_index..];
         
-        let too_short = |what: WhatIsTooShort, expected: usize| -> Result<(), EventError> {
+        let too_short = |what: WhatIsTooShort, expected: usize| -> std::result::Result<(), Error> {
             let found = remaining.len();
             if found < expected {
                 return Err(TooShort {
@@ -364,7 +362,7 @@ impl<'a> Events<'a> {
             });
         }
         // type annotated for IDE, since from_bits_truncate is generated
-        let mask: MarkMask = MarkMask::from_bits_truncate(event.mask);
+        let mask: mark::Mask = mark::Mask::from_bits_truncate(event.mask);
         
         let has_no_fd = event.fd == FAN_NOFD;
         let requested_fid = self.fanotify.init.flags().contains(init::Flags::REPORT_FID);
@@ -403,7 +401,7 @@ impl<'a> Events<'a> {
             id,
         };
         
-        let get_fd = || -> Result<FD, EventError> {
+        let get_fd = || -> std::result::Result<FD, Error> {
             let fd = unsafe { FD::from_raw_fd(event.fd) };
             if !fd.check() {
                 return Err(InvalidFd { fd });
@@ -412,20 +410,20 @@ impl<'a> Events<'a> {
         };
         
         let file = if is_perm {
-            let file = EventFilePermission {
+            let file = FilePermission {
                 fd: get_fd()?,
                 decision: PermissionDecision::default(),
                 audit: false,
                 response: self.next_response(),
             };
-            EventFile::Permission(file)
+            File::Permission(file)
         } else {
             if received_fid {
                 // already checked that we have enough bytes for this
                 let remaining = &remaining[mem::size_of::<fanotify_event_metadata>()..];
                 let ptr = remaining.as_ptr() as *const fanotify_event_info_fid;
                 let fid = unsafe { &*ptr };
-                let info_type: EventInfoType = fid.hdr.info_type
+                let info_type: InfoType = fid.hdr.info_type
                     .try_into()
                     .map_err(|info_type| InvalidFidInfoType { info_type })?;
                 {
@@ -441,7 +439,7 @@ impl<'a> Events<'a> {
                         });
                     }
                 }
-                EventFile::FID(EventFileFID {
+                File::FID(FileFID {
                     info_type,
                     fsid: FileSystemId {
                         fsid: fid.fsid,
@@ -451,7 +449,7 @@ impl<'a> Events<'a> {
                     },
                 })
             } else {
-                EventFile::FD(EventFileFD {
+                File::FD(FileFD {
                     fd: get_fd()?,
                 })
             }
@@ -465,7 +463,7 @@ impl<'a> Events<'a> {
         Ok(this)
     }
     
-    pub fn next(&mut self) -> Option<EventResult<'a>> {
+    pub fn next(&mut self) -> Option<Result<'a>> {
         if self.buffer.len() <= self.read_index {
             return None;
         } else {
@@ -473,7 +471,7 @@ impl<'a> Events<'a> {
         }
     }
     
-    pub fn for_each<F: Fn(Result<Event<'a>, EventError>)>(&mut self, f: F) {
+    pub fn for_each<F: Fn(Result<'a>)>(&mut self, f: F) {
         while let Some(event) = self.next() {
             f(event);
         }
@@ -481,7 +479,7 @@ impl<'a> Events<'a> {
 }
 
 impl Events<'_> {
-    pub fn write(&mut self) -> Result<usize, Errno> {
+    pub fn write(&mut self) -> std::result::Result<usize, Errno> {
         let buffer = &self.buffer.as_slice()[self.write_range.start..self.write_range.end];
         let bytes_written = self.fanotify.fd.write(buffer)?;
         assert!(bytes_written <= buffer.len());

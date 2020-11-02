@@ -3,11 +3,10 @@ use std::fmt::{Display, Formatter};
 use std::os::raw::c_void;
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
-
 use libc;
 use nix::errno::Errno;
 
-use crate::util::libc_call;
+use super::util::libc_call;
 
 #[derive(Eq, PartialEq, Hash, Debug)]
 pub struct FD {
@@ -49,14 +48,14 @@ impl FD {
     pub fn check(&self) -> bool {
         self.fd >= 0
     }
-
+    
     pub fn read(&self, buf: &mut [u8]) -> Result<usize, Errno> {
         let len = cmp::min(buf.len(), libc::ssize_t::MAX as usize) as libc::size_t;
         let buf = buf.as_mut_ptr() as *mut c_void;
         let bytes_read = libc_call(|| unsafe { libc::read(self.fd, buf, len) })?;
         Ok(bytes_read as usize)
     }
-
+    
     pub fn write(&self, buf: &[u8]) -> Result<usize, Errno> {
         if buf.is_empty() {
             return Ok(0);

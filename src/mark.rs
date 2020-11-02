@@ -6,55 +6,55 @@ use std::marker::PhantomData;
 use std::os::raw::c_char;
 use std::os::unix::ffi::OsStringExt;
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
-use std::path::Path;
 
 use bitflags::bitflags;
 use thiserror::Error;
 
+use super::init;
 use super::libc::mark::{action, flag, mask, what};
 
-use self::MarkAction::Flush;
-use self::StaticMarkError::EmptyMask;
+use self::Action::Flush;
+use self::StaticError::EmptyMask;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum MarkOneAction {
+pub enum OneAction {
     Add,
     Remove,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(u32)]
-pub enum MarkAction {
+pub enum Action {
     Add = action::FAN_MARK_ADD,
     Remove = action::FAN_MARK_REMOVE,
     Flush = action::FAN_MARK_FLUSH,
 }
 
-impl MarkOneAction {
-    pub const fn const_into(self) -> MarkAction {
+impl OneAction {
+    pub const fn const_into(self) -> Action {
         match self {
-            Self::Add => MarkAction::Add,
-            Self::Remove => MarkAction::Remove,
+            Self::Add => Action::Add,
+            Self::Remove => Action::Remove,
         }
     }
 }
 
-impl From<MarkOneAction> for MarkAction {
-    fn from(it: MarkOneAction) -> Self {
+impl From<OneAction> for Action {
+    fn from(it: OneAction) -> Self {
         it.const_into()
     }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(u32)]
-pub enum MarkWhat {
+pub enum What {
     Inode = what::FAN_MARK_INODE,
     MountPoint = what::FAN_MARK_MOUNT,
     FileSystem = what::FAN_MARK_FILESYSTEM,
 }
 
 bitflags! {
-    pub struct MarkFlags: u32 {
+    pub struct Flags: u32 {
         const DONT_FOLLOW = flag::FAN_MARK_DONT_FOLLOW;
         const ONLY_DIR = flag::FAN_MARK_ONLYDIR;
         const IGNORED_MASK = flag::FAN_MARK_IGNORED_MASK;
@@ -62,13 +62,13 @@ bitflags! {
     }
 }
 
-impl MarkFlags {
+impl Flags {
     pub const fn const_default() -> Self {
         Self::empty()
     }
 }
 
-impl Default for MarkFlags {
+impl Default for Flags {
     fn default() -> Self {
         Self::const_default()
     }
@@ -76,7 +76,7 @@ impl Default for MarkFlags {
 
 // TODO find better names for some of these
 bitflags! {
-    pub struct MarkMask: u64 {
+    pub struct Mask: u64 {
         const ACCESS = mask::FAN_ACCESS;
         const OPEN = mask::FAN_OPEN;
         const OPEN_EXEC = mask::FAN_OPEN_EXEC;
@@ -102,23 +102,23 @@ bitflags! {
     }
 }
 
-impl MarkMask {
+impl Mask {
     // combined flags
-
+    
     pub const fn close() -> Self {
         Self::from_bits_truncate(0
             | Self::CLOSE_NO_WRITE.bits
             | Self::CLOSE_WRITE.bits
         )
     }
-
+    
     pub const fn moved() -> Self {
         Self::from_bits_truncate(0
             | Self::MOVED_FROM.bits
             | Self::MOVED_TO.bits
         )
     }
-
+    
     pub const fn all_permissions() -> Self {
         Self::from_bits_truncate(0
             | Self::ACCESS_PERMISSION.bits
@@ -126,11 +126,11 @@ impl MarkMask {
             | Self::OPEN_EXEC_PERMISSION.bits
         )
     }
-
+    
     pub const fn includes_permission(&self) -> bool {
         self.contains(Self::all_permissions())
     }
-
+    
     pub const fn path_changed(&self) -> Self {
         Self::from_bits_truncate(0
             | Self::ACCESS.bits
@@ -141,7 +141,7 @@ impl MarkMask {
             | Self::MODIFY.bits
         )
     }
-
+    
     pub const fn used(&self) -> Self {
         Self::from_bits_truncate(0
             | Self::CREATE.bits
@@ -183,7 +183,7 @@ impl DirFd<'static> {
     pub const fn current_working_directory() -> Self {
         unsafe { Self::const_from_raw_fd(libc::AT_FDCWD) }
     }
-
+    
     pub const unsafe fn invalid() -> Self {
         Self::const_from_raw_fd(-1)
     }
@@ -196,23 +196,23 @@ impl<'a> DirFd<'a> {
             phantom: PhantomData,
         }
     }
-
+    
     pub fn directory<P: AsRawFd>(dir: &'a P) -> Self {
         Self {
             fd: dir.as_raw_fd(),
             phantom: PhantomData,
         }
     }
-
+    
     pub const fn is_current_working_directory(&self) -> bool {
         self.fd == libc::AT_FDCWD
     }
-
-    pub fn resolve(&self) -> Cow<Path> {
+    
+    pub fn resolve(&self) -> Cow<std::path::Path> {
         if self.is_current_working_directory() {
-            Cow::Borrowed(Path::new("."))
+            Cow::Borrowed(std::path::Path::new("."))
         } else {
-            let link = Path::new("/proc/self/fd")
+            let link = std::path::Path::new("/proc/self/fd")
                 .join(format!("{}", self.fd));
             let link = link.read_link().unwrap_or(link);
             Cow::Owned(link)
@@ -230,12 +230,12 @@ impl Display for DirFd<'_> {
 }
 
 #[derive(Eq, PartialEq, Hash)]
-pub struct MarkPath<'a> {
+pub struct Path<'a> {
     pub(crate) dir: DirFd<'a>,
-    pub(crate) path: Option<&'a Path>,
+    pub(crate) path: Option<&'a std::path::Path>,
 }
 
-impl MarkPath<'static> {
+impl Path<'static> {
     pub const fn current_working_directory() -> Self {
         Self {
             dir: DirFd::current_working_directory(),
@@ -244,29 +244,29 @@ impl MarkPath<'static> {
     }
 }
 
-impl<'a> MarkPath<'a> {
+impl<'a> Path<'a> {
     pub fn directory<FD: AsRawFd>(dir: &'a FD) -> Self {
         Self {
             dir: DirFd::directory(dir),
             path: None,
         }
     }
-
-    pub fn relative_to<FD: AsRawFd, P: AsRef<Path> + 'a + ?Sized>(dir: &'a FD, path: &'a P) -> Self {
+    
+    pub fn relative_to<FD: AsRawFd, P: AsRef<std::path::Path> + 'a + ?Sized>(dir: &'a FD, path: &'a P) -> Self {
         Self {
             dir: DirFd::directory(dir),
             path: Some(path.as_ref()),
         }
     }
-
-    pub fn absolute<P: AsRef<Path> + 'a + ?Sized>(path: &'a P) -> Self {
+    
+    pub fn absolute<P: AsRef<std::path::Path> + 'a + ?Sized>(path: &'a P) -> Self {
         Self {
             dir: unsafe { DirFd::invalid() }, // ignored by fanotify_mark()
             path: Some(path.as_ref()),
         }
     }
-
-    pub fn resolve(&self) -> Cow<Path> {
+    
+    pub fn resolve(&self) -> Cow<std::path::Path> {
         match self.path {
             None => self.dir.resolve(),
             Some(path) => if path.is_absolute() {
@@ -278,7 +278,7 @@ impl<'a> MarkPath<'a> {
     }
 }
 
-impl Display for MarkPath<'_> {
+impl Display for Path<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.path {
             None => write!(f, "{{ dir: {} }}", self.dir),
@@ -294,28 +294,28 @@ impl Display for MarkPath<'_> {
     }
 }
 
-impl Debug for MarkPath<'_> {
+impl Debug for Path<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self)
     }
 }
 
 #[derive(Debug, Eq, PartialEq, Hash)]
-pub struct MarkOne<'a> {
-    pub action: MarkOneAction,
-    pub what: MarkWhat,
-    pub flags: MarkFlags,
-    pub mask: MarkMask,
-    pub path: MarkPath<'a>,
+pub struct One<'a> {
+    pub action: OneAction,
+    pub what: What,
+    pub flags: Flags,
+    pub mask: Mask,
+    pub path: Path<'a>,
 }
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct Mark<'a> {
-    pub(crate) action: MarkAction,
-    pub(crate) what: MarkWhat,
-    pub(crate) flags: MarkFlags,
-    pub(crate) mask: MarkMask,
-    pub(crate) path: MarkPath<'a>,
+    pub(crate) action: Action,
+    pub(crate) what: What,
+    pub(crate) flags: Flags,
+    pub(crate) mask: Mask,
+    pub(crate) path: Path<'a>,
 }
 
 impl Display for Mark<'_> {
@@ -326,14 +326,14 @@ impl Display for Mark<'_> {
 }
 
 #[derive(Error, Debug, Eq, PartialEq, Hash)]
-pub enum StaticMarkError {
+pub enum StaticError {
     #[error("mask must not be empty for add or remove")]
     EmptyMask,
 }
 
 impl<'a> Mark<'a> {
-    pub const fn one(mark: MarkOne<'a>) -> Result<Self, StaticMarkError> {
-        let MarkOne {
+    pub const fn one(mark: One<'a>) -> Result<Self, StaticError> {
+        let One {
             action,
             what,
             flags,
@@ -352,19 +352,19 @@ impl<'a> Mark<'a> {
         };
         Ok(this)
     }
-
-    pub const fn flush(what: MarkWhat) -> Self {
+    
+    pub const fn flush(what: What) -> Self {
         Self {
             action: Flush,
             what,
-            flags: MarkFlags::empty(),
-            mask: MarkMask::all(), // ignored, but empty is invalid on add/remove
-            path: MarkPath::current_working_directory(), // ignored, but good default with 'static lifetime
+            flags: Flags::empty(),
+            mask: Mask::all(), // ignored, but empty is invalid on add/remove
+            path: Path::current_working_directory(), // ignored, but good default with 'static lifetime
         }
     }
 }
 
-type RawMarkFlags = u32;
+type RawFlags = u32;
 
 #[derive(Debug, PartialEq, Hash)]
 pub struct RawMark {
@@ -384,10 +384,10 @@ impl RawMark {
 }
 
 impl<'a> Mark<'a> {
-    pub const fn flags(&self) -> RawMarkFlags {
+    pub const fn flags(&self) -> RawFlags {
         self.action as u32 | self.what as u32 | self.flags.bits()
     }
-
+    
     pub fn to_raw(&self) -> RawMark {
         RawMark {
             flags: self.flags(),
@@ -405,34 +405,68 @@ impl<'a> Mark<'a> {
     }
 }
 
+#[derive(thiserror::Error, Debug, Eq, PartialEq, Hash)]
+pub enum RawError {
+    #[error("invalid argument specified")]
+    InvalidArgument,
+    #[error("bad dir fd specified: {}", .fd)]
+    BadDirFd { fd: RawFd },
+    #[error("not a directory, but {:?} specified", Flags::ONLY_DIR)]
+    NotADirectory,
+    #[error("path does not exist")]
+    PathDoesNotExist,
+    #[error("path is on a filesystem that doesn't support fsid and {:?} has been specified", init::Flags::REPORT_FID)]
+    PathDoesNotSupportFSID,
+    #[error("path is on a filesystem that doesn't support the encoding of file handles and {:?} has been specified", init::Flags::REPORT_FID)]
+    PathNotSupported,
+    #[error("path resides on a subvolume that uses a different fsid than its root superblock")]
+    PathUsesDifferentFSID,
+    #[error("cannot remove mark that doesn't exist yet")]
+    CannotRemoveNonExistentMark,
+    #[error("exceeded the per-fanotify group mark limit of 8192 and {:?} was not specified", init::Flags::UNLIMITED_MARKS)]
+    ExceededMarkLimit,
+    #[error("kernel out of memory")]
+    OutOfMemory,
+    #[error("the kernel does not support a certain feature for fanotify_init()")]
+    FeatureUnsupported,
+}
+
+#[derive(thiserror::Error, Debug, Eq, PartialEq, Hash)]
+#[error("{:?}: {:?}", .error, .mark)]
+pub struct Error<'a> {
+    pub error: RawError,
+    pub mark: Mark<'a>,
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs::File;
     use std::path::Path;
-
-    use crate::mark::{Mark, MarkFlags, MarkMask, MarkOne, MarkPath, StaticMarkError};
-    use crate::mark::MarkOneAction::Add;
-    use crate::mark::MarkWhat::{FileSystem, MountPoint};
-
+    
+    use crate::mark;
+    use crate::mark::Mark;
+    use crate::mark::OneAction::Add;
+    use crate::mark::What::{FileSystem, MountPoint};
+    
     #[test]
     fn mark_static_error() {
-        assert_eq!(Mark::one(MarkOne {
+        assert_eq!(Mark::one(mark::One {
             action: Add,
             what: FileSystem,
-            flags: MarkFlags::empty(),
-            mask: MarkMask::empty(),
-            path: MarkPath::current_working_directory(),
-        }), Err(StaticMarkError::EmptyMask));
+            flags: mark::Flags::empty(),
+            mask: mark::Mask::empty(),
+            path: mark::Path::current_working_directory(),
+        }), Err(mark::StaticError::EmptyMask));
     }
-
+    
     #[test]
     fn mark_display_debug_1() {
-        let mark = Mark::one(MarkOne {
+        let mark = Mark::one(mark::One {
             action: Add,
             what: FileSystem,
-            flags: MarkFlags::empty(),
-            mask: MarkMask::OPEN | MarkMask::close(),
-            path: MarkPath::current_working_directory(),
+            flags: mark::Flags::empty(),
+            mask: mark::Mask::OPEN | mark::Mask::close(),
+            path: mark::Path::current_working_directory(),
         }).unwrap();
         assert_eq!(
             format!("{}", mark),
@@ -445,15 +479,15 @@ mod tests {
             }",
         );
     }
-
+    
     #[test]
     fn mark_display_debug_2() {
-        let mark = Mark::one(MarkOne {
+        let mark = Mark::one(mark::One {
             action: Add,
             what: FileSystem,
-            flags: MarkFlags::ONLY_DIR | MarkFlags::DONT_FOLLOW,
-            mask: MarkMask::CREATE | MarkMask::DELETE | MarkMask::moved(),
-            path: MarkPath::absolute(Path::new("/home")),
+            flags: mark::Flags::ONLY_DIR | mark::Flags::DONT_FOLLOW,
+            mask: mark::Mask::CREATE | mark::Mask::DELETE | mark::Mask::moved(),
+            path: mark::Path::absolute(Path::new("/home")),
         }).unwrap();
         assert_eq!(
             format!("{}", mark),
@@ -466,16 +500,16 @@ mod tests {
             }",
         );
     }
-
+    
     #[test]
     fn mark_display_debug_3() {
         let root = File::open(Path::new("/")).unwrap();
-        let mark = Mark::one(MarkOne {
+        let mark = Mark::one(mark::One {
             action: Add,
             what: MountPoint,
-            flags: MarkFlags::ONLY_DIR | MarkFlags::DONT_FOLLOW,
-            mask: MarkMask::CREATE | MarkMask::DELETE | MarkMask::moved(),
-            path: MarkPath::relative_to(&root, Path::new("proc")),
+            flags: mark::Flags::ONLY_DIR | mark::Flags::DONT_FOLLOW,
+            mask: mark::Mask::CREATE | mark::Mask::DELETE | mark::Mask::moved(),
+            path: mark::Path::relative_to(&root, Path::new("proc")),
         }).unwrap();
         assert_eq!(
             format!("{}", mark),

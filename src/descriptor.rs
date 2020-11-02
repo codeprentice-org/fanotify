@@ -1,13 +1,12 @@
-use std::os::unix::io::{AsRawFd, IntoRawFd, RawFd, FromRawFd};
+use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 use nix::errno::Errno;
-use thiserror::Error;
 
-use crate::common::FD;
-use crate::event::Events;
-
+use super::{init, mark};
+use super::common::FD;
+use super::event::Events;
 use super::init::{Flags, Init, NotificationClass::Notify, RawInit};
-use super::mark::{Mark, MarkAction::{Add, Remove}, MarkFlags};
+use super::mark::{Action::{Add, Remove}, Mark};
 use super::util::{ImpossibleSysCallError, libc_call, libc_void_call};
 
 #[derive(Debug)]
@@ -38,36 +37,16 @@ impl Fanotify {
     }
 }
 
-#[derive(Error, Debug, Eq, PartialEq, Hash)]
-pub enum InitError {
-    #[error("invalid argument specified")]
-    InvalidArgument,
-    #[error("exceeded the per-process limit on fanotify groups")]
-    ExceededFanotifyGroupPerProcessLimit,
-    #[error("exceeded the per-process limit on open file descriptors")]
-    ExceededOpenFileDescriptorPerProcessLimit,
-    #[error("kernel out of memory")]
-    OutOfMemory,
-    #[error("user does not have the required CAP_SYS_ADMIN capability")]
-    PermissionDenied,
-    #[error("the kernel does not support the fanotify_init() syscall")]
-    FanotifyUnsupported,
-    #[error("the kernel does not support a certain feature for fanotify_init()")]
-    FeatureUnsupported,
-    #[error("received an invalid fd: {}", .fd)]
-    InvalidFd { fd: FD },
-}
-
 impl RawInit {
-    pub fn run(self) -> Result<Fanotify, InitError> {
+    pub fn run(self) -> Result<Fanotify, init::Error> {
         use Errno::*;
-        use InitError::*;
-
+        use init::Error::*;
+        
         let init = self.undo_raw();
         if init.flags.contains(Flags::REPORT_FID) && init.notification_class != Notify {
             return Err(InvalidArgument);
         }
-
+        
         libc_call(|| unsafe { libc::fanotify_init(self.flags, self.event_flags) })
             .map_err(|errno| match errno {
                 EMFILE => ExceededFanotifyGroupPerProcessLimit,
@@ -97,47 +76,14 @@ impl RawInit {
 }
 
 impl Init {
-    pub fn run(&self) -> Result<Fanotify, InitError> {
+    pub fn run(&self) -> Result<Fanotify, init::Error> {
         self.as_raw().run()
     }
 }
 
-#[derive(Error, Debug, Eq, PartialEq, Hash)]
-pub enum RawMarkError {
-    #[error("invalid argument specified")]
-    InvalidArgument,
-    #[error("bad dir fd specified: {}", .fd)]
-    BadDirFd { fd: RawFd },
-    #[error("not a directory, but {:?} specified", MarkFlags::ONLY_DIR)]
-    NotADirectory,
-    #[error("path does not exist")]
-    PathDoesNotExist,
-    #[error("path is on a filesystem that doesn't support fsid and {:?} has been specified", Flags::REPORT_FID)]
-    PathDoesNotSupportFSID,
-    #[error("path is on a filesystem that doesn't support the encoding of file handles and {:?} has been specified", Flags::REPORT_FID)]
-    PathNotSupported,
-    #[error("path resides on a subvolume that uses a different fsid than its root superblock")]
-    PathUsesDifferentFSID,
-    #[error("cannot remove mark that doesn't exist yet")]
-    CannotRemoveNonExistentMark,
-    #[error("exceeded the per-fanotify group mark limit of 8192 and {:?} was not specified", Flags::UNLIMITED_MARKS)]
-    ExceededMarkLimit,
-    #[error("kernel out of memory")]
-    OutOfMemory,
-    #[error("the kernel does not support a certain feature for fanotify_init()")]
-    FeatureUnsupported,
-}
-
-#[derive(Error, Debug, Eq, PartialEq, Hash)]
-#[error("{:?}: {:?}", .error, .mark)]
-pub struct MarkError<'a> {
-    pub error: RawMarkError,
-    pub mark: Mark<'a>,
-}
-
 impl Fanotify {
-    fn mark_raw_error(&self, mark: &Mark) -> Result<(), RawMarkError> {
-        use RawMarkError::*;
+    fn mark_raw_error(&self, mark: &Mark) -> Result<(), mark::RawError> {
+        use mark::RawError::*;
         use Errno::*;
         let init = self.init.undo_raw();
         if mark.mask.includes_permission() && init.notification_class == Notify {
@@ -173,10 +119,10 @@ impl Fanotify {
             }),
         })
     }
-
-    pub fn mark<'a>(&self, mark: Mark<'a>) -> Result<(), MarkError<'a>> {
+    
+    pub fn mark<'a>(&self, mark: Mark<'a>) -> Result<(), mark::Error<'a>> {
         self.mark_raw_error(&mark)
-            .map_err(|error| MarkError { error, mark })
+            .map_err(|error| mark::Error { error, mark })
     }
 }
 
@@ -191,23 +137,24 @@ mod tests {
     use std::error::Error;
     use std::mem;
     use std::path::Path;
-
+    
     use static_assertions::_core::ptr::slice_from_raw_parts_mut;
-
+    
     use crate::descriptor::{Fanotify, InitError};
     use crate::init::{Flags, Init};
     use crate::libc::read::fanotify_event_metadata;
-    use crate::mark::{Mark, MarkFlags, MarkMask, MarkOne, MarkPath};
-    use crate::mark::MarkOneAction::Add;
-    use crate::mark::MarkWhat::MountPoint;
-
+    use crate::mark;
+    use crate::mark::Mark;
+    use crate::mark::OneAction::Add;
+    use crate::mark::What::MountPoint;
+    
     const fn get_init() -> Init {
         Init {
             flags: Flags::unlimited(),
             ..Init::const_default()
         }
     }
-
+    
     fn with_fanotify<F: FnOnce(Fanotify) -> Result<(), Box<dyn Error>>>(f: F) {
         match get_init().run() {
             Ok(fanotify) => f(fanotify).unwrap(),
@@ -216,22 +163,22 @@ mod tests {
             }
         }
     }
-
+    
     #[test]
     fn init_or_catches_unsupported() {
         with_fanotify(|_| Ok(()));
     }
-
+    
     fn get_mark() -> Mark<'static> {
-        Mark::one(MarkOne {
+        Mark::one(mark::One {
             action: Add,
             what: MountPoint,
             flags: MarkFlags::empty(),
-            mask: MarkMask::OPEN | MarkMask::close(),
-            path: MarkPath::absolute("/home"),
+            mask: mark::Mask::OPEN | mark::Mask::close(),
+            path: mark::Path::absolute("/home"),
         }).unwrap()
     }
-
+    
     #[test]
     fn init_and_mark() {
         with_fanotify(|fanotify| {
@@ -239,7 +186,7 @@ mod tests {
             Ok(())
         });
     }
-
+    
     #[test]
     fn init_mark_and_read() {
         with_fanotify(|fanotify| {

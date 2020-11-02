@@ -16,7 +16,7 @@ pub mod init {
         pub const FAN_REPORT_DIR_FID: u32 = 0x00000400;
         pub const FAN_REPORT_NAME: u32 = 0x00000800;
     }
-
+    
     /// NotificationClass < Flags
     pub mod notification_class {
         pub const FAN_CLASS_NOTIF: u32 = 0x00000000;
@@ -33,14 +33,14 @@ pub mod mark {
         pub const FAN_MARK_REMOVE: u32 = 0x00000002;
         pub const FAN_MARK_FLUSH: u32 = 0x00000080;
     }
-
+    
     /// MarkWhat < CombinedMarkFlags
     pub mod what {
         pub const FAN_MARK_INODE: u32 = 0x00000000;
         pub const FAN_MARK_MOUNT: u32 = 0x00000010;
         pub const FAN_MARK_FILESYSTEM: u32 = 0x00000100;
     }
-
+    
     /// MarkFlags < CombinedMarkFlags
     pub mod flag {
         pub const FAN_MARK_DONT_FOLLOW: u32 = 0x00000004;
@@ -48,8 +48,8 @@ pub mod mark {
         pub const FAN_MARK_IGNORED_MASK: u32 = 0x00000020;
         pub const FAN_MARK_IGNORED_SURV_MODIFY: u32 = 0x00000040;
     }
-
-    /// MarkMask
+    
+    /// mark::Mask
     pub mod mask {
         pub const FAN_ACCESS: u64 = 0x00000001;
         pub const FAN_MODIFY: u64 = 0x00000002;
@@ -86,7 +86,7 @@ pub mod read {
         pub fd: i32,
         pub pid: i32,
     }
-
+    
     #[allow(non_camel_case_types)]
     #[repr(C)]
     pub struct fanotify_event_info_header {
@@ -94,7 +94,7 @@ pub mod read {
         pub pad: u8,
         pub len: u16,
     }
-
+    
     #[allow(non_camel_case_types)]
     #[repr(C)]
     pub struct fanotify_event_file_handle {
@@ -102,7 +102,7 @@ pub mod read {
         // I know it's not zero-sized at least
         opaque: [libc::c_char; 1], // C VLA
     }
-
+    
     #[allow(non_camel_case_types)]
     #[repr(C)]
     pub struct fanotify_event_info_fid {
@@ -110,11 +110,11 @@ pub mod read {
         pub fsid: libc::fsid_t,
         pub handle: fanotify_event_file_handle,
     }
-
+    
     pub const FANOTIFY_METADATA_VERSION: u8 = 3;
-
+    
     pub const FAN_NOFD: i32 = -1;
-
+    
     pub const FAN_EVENT_INFO_TYPE_FID: u8 = 1;
     pub const FAN_EVENT_INFO_TYPE_DFID_NAME: u8 = 2;
     pub const FAN_EVENT_INFO_TYPE_DFID: u8 = 3;
@@ -127,7 +127,7 @@ pub mod write {
         pub fd: i32,
         pub response: u32,
     }
-
+    
     pub const FAN_ALLOW: u32 = 0x01;
     pub const FAN_DENY: u32 = 0x02;
     pub const FAN_AUDIT: u32 = 0x10;

@@ -5,6 +5,7 @@ use bitflags::bitflags;
 use static_assertions::_core::fmt::Formatter;
 use static_assertions::const_assert_eq;
 
+use super::common::FD;
 use super::libc::init::{flag, notification_class};
 
 use self::NotificationClass::{Content, Notify, PreContent};
@@ -47,7 +48,7 @@ impl Flags {
     pub const fn const_default() -> Self {
         Self::empty()
     }
-
+    
     pub const fn unlimited() -> Self {
         Self::from_bits_truncate(Self::UNLIMITED_QUEUE.bits | Self::UNLIMITED_MARKS.bits)
     }
@@ -145,11 +146,11 @@ impl Init {
     pub const fn flags(&self) -> u32 {
         self.notification_class as u32 | self.flags.bits()
     }
-
+    
     pub const fn event_flags(&self) -> u32 {
         self.rw as u32 | self.event_flags.bits()
     }
-
+    
     pub const fn as_raw(&self) -> RawInit {
         RawInit {
             flags: self.flags(),
@@ -163,11 +164,11 @@ impl RawInit {
         const_assert_eq!(PreContent as u32, 0b1000);
         const_assert_eq!(Content as u32, 0b0100);
         const_assert_eq!(Notify as u32, 0b0000);
-
+        
         const_assert_eq!(PreContent as u32, 2 << 2);
         const_assert_eq!(Content as u32, 1 << 2);
         const_assert_eq!(Notify as u32, 0 << 2);
-
+        
         [
             Notify,
             Content,
@@ -175,12 +176,12 @@ impl RawInit {
             Notify, // unsafe
         ][((self.flags & 0b1111) >> 2) as usize]
     }
-
+    
     pub const fn flags(&self) -> Flags {
         let bits = self.flags & !0b1100;
         Flags::from_bits_truncate(bits)
     }
-
+    
     pub const fn rw(&self) -> ReadWrite {
         const_assert_eq!(Read as u32, 0);
         const_assert_eq!(Write as u32, 1);
@@ -192,12 +193,12 @@ impl RawInit {
             Read, // unsafe
         ][(self.event_flags & 0b11) as usize]
     }
-
+    
     pub const fn event_flags(&self) -> EventFlags {
         let bits = self.event_flags & !0b11;
         EventFlags::from_bits_truncate(bits)
     }
-
+    
     pub const fn undo_raw(&self) -> Init {
         Init {
             notification_class: self.notification_class(),
@@ -215,10 +216,30 @@ impl Display for RawInit {
     }
 }
 
+#[derive(thiserror::Error, Debug, Eq, PartialEq, Hash)]
+pub enum Error {
+    #[error("invalid argument specified")]
+    InvalidArgument,
+    #[error("exceeded the per-process limit on fanotify groups")]
+    ExceededFanotifyGroupPerProcessLimit,
+    #[error("exceeded the per-process limit on open file descriptors")]
+    ExceededOpenFileDescriptorPerProcessLimit,
+    #[error("kernel out of memory")]
+    OutOfMemory,
+    #[error("user does not have the required CAP_SYS_ADMIN capability")]
+    PermissionDenied,
+    #[error("the kernel does not support the fanotify_init() syscall")]
+    FanotifyUnsupported,
+    #[error("the kernel does not support a certain feature for fanotify_init()")]
+    FeatureUnsupported,
+    #[error("received an invalid fd: {}", .fd)]
+    InvalidFd { fd: FD },
+}
+
 #[cfg(test)]
 mod tests {
     use crate::init::{Flags, Init};
-
+    
     #[test]
     fn init_display_debug() {
         let args = Init {
