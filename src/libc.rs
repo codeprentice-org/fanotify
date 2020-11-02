@@ -75,7 +75,6 @@ pub mod mark {
 
 pub mod read {
     #[allow(non_camel_case_types)]
-    #[derive(Debug, Default)] // TODO remove Debug, Default
     #[repr(C)]
     pub struct fanotify_event_metadata {
         pub event_len: u32,

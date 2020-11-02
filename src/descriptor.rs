@@ -191,7 +191,15 @@ mod tests {
     fn init_mark_and_read() {
         with_fanotify(|fanotify| {
             fanotify.mark(get_mark())?;
-            let mut buf = [fanotify_event_metadata::default(); 1];
+            let mut buf = [fanotify_event_metadata {
+                event_len: 0,
+                vers: 0,
+                reserved: 0,
+                metadata_len: 0,
+                mask: 0,
+                fd: 0,
+                pid: 0
+            }; 1];
             fanotify.fd.read(unsafe {
                 &mut *slice_from_raw_parts_mut(
                     buf.as_mut_ptr() as *mut u8,
