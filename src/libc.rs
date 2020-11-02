@@ -99,7 +99,8 @@ pub mod read {
     #[repr(C)]
     pub struct fanotify_event_file_handle {
         // TODO am I doing the variable sized type from C right here?
-        opaque: [libc::c_char; 0], // C VLA
+        // I know it's not zero-sized at least
+        opaque: [libc::c_char; 1], // C VLA
     }
 
     #[allow(non_camel_case_types)]

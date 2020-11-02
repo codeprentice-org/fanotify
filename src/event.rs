@@ -1,21 +1,23 @@
 use std::{mem, slice};
 use std::convert::{TryFrom, TryInto};
+use std::ops::Range;
 use std::os::unix::io::{AsRawFd, FromRawFd};
 
 use nix::errno::Errno;
 use nix::unistd::{getpid, gettid, Pid};
+use static_assertions::const_assert;
 use thiserror::Error;
+use to_trait::To;
 
 use crate::common::FD;
 use crate::descriptor::Fanotify;
 use crate::init;
 use crate::libc::mark::mask::FAN_Q_OVERFLOW;
 use crate::libc::read::{FAN_EVENT_INFO_TYPE_DFID, FAN_EVENT_INFO_TYPE_DFID_NAME, FAN_EVENT_INFO_TYPE_FID, FAN_NOFD, fanotify_event_file_handle, fanotify_event_info_fid, fanotify_event_info_header, fanotify_event_metadata, FANOTIFY_METADATA_VERSION};
-use crate::libc::write::{FAN_ALLOW, FAN_DENY, fanotify_response, FAN_AUDIT};
+use crate::libc::write::{FAN_ALLOW, FAN_AUDIT, FAN_DENY, fanotify_response};
 use crate::mark::MarkMask;
 
 use self::PermissionDecision::{Allow, Deny};
-use to_trait::To;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Id {
@@ -30,14 +32,14 @@ impl Id {
             Self::Tid(_) => None,
         }
     }
-
+    
     pub fn tid(&self) -> Option<Pid> {
         match self {
             Self::Pid(_) => None,
             Self::Tid(tid) => Some(*tid),
         }
     }
-
+    
     pub fn current(use_tid: bool) -> Self {
         if use_tid {
             Self::Tid(gettid())
@@ -56,7 +58,7 @@ impl EventId {
     pub fn pid(&self) -> Option<Pid> {
         self.id.pid()
     }
-
+    
     pub fn tid(&self) -> Option<Pid> {
         self.id.tid()
     }
@@ -81,7 +83,7 @@ pub enum EventInfoType {
 
 impl TryFrom<u8> for EventInfoType {
     type Error = u8;
-
+    
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         use EventInfoType::*;
         let this = match value {
@@ -110,7 +112,9 @@ pub struct FileHandle<'a> {
 }
 
 impl FileHandle<'_> {
-    // TODO open_by_handle_at()
+    pub fn open(&self) -> FD {
+        todo!("{:p}", self.handle)
+    }
 }
 
 pub struct EventFileFID<'a> {
@@ -119,6 +123,7 @@ pub struct EventFileFID<'a> {
     pub handle: FileHandle<'a>,
 }
 
+#[derive(Eq, PartialEq, Copy, Clone)]
 pub enum PermissionDecision {
     Allow,
     Deny,
@@ -145,8 +150,7 @@ pub struct EventFilePermission<'a> {
     pub fd: FD,
     pub decision: PermissionDecision,
     pub audit: bool,
-    responses: &'a mut Vec<fanotify_response>,
-    response_index: usize,
+    response: &'a mut fanotify_response,
 }
 
 impl EventFilePermission<'_> {
@@ -162,7 +166,7 @@ impl EventFilePermission<'_> {
 // make sure the permission write always goes through
 impl Drop for EventFilePermission<'_> {
     fn drop(&mut self) {
-        self.responses[self.response_index] = self.response();
+        *self.response = self.response();
     }
 }
 
@@ -170,7 +174,7 @@ impl EventFilePermission<'_> {
     pub fn allow(&mut self) {
         self.decision = Allow;
     }
-
+    
     pub fn deny(&mut self) {
         self.decision = Deny;
     }
@@ -182,6 +186,29 @@ pub enum EventFile<'a> {
     Permission(EventFilePermission<'a>),
 }
 
+impl<'a> EventFile<'a> {
+    pub fn fd(self) -> Option<EventFileFD> {
+        match self {
+            Self::FD(file) => Some(file),
+            _ => None,
+        }
+    }
+    
+    pub fn fid(self) -> Option<EventFileFID<'a>> {
+        match self {
+            Self::FID(file) => Some(file),
+            _ => None,
+        }
+    }
+    
+    pub fn permission(self) -> Option<EventFilePermission<'a>> {
+        match self {
+            Self::Permission(file) => Some(file),
+            _ => None,
+        }
+    }
+}
+
 pub struct Event<'a> {
     pub mask: MarkMask,
     pub id: EventId,
@@ -191,100 +218,43 @@ pub struct Event<'a> {
 pub struct Events<'a> {
     fanotify: &'a Fanotify,
     id: Id,
-    reads: &'a Vec<u8>,
+    buffer: &'a mut Vec<u8>,
     read_index: usize,
-    writes: &'a mut Vec<fanotify_response>,
-    write_index: usize,
-}
-
-pub struct EventBuffer {
-    reads: Vec<u8>,
-    // variable length, so un-typed
-    writes: Vec<fanotify_response>,
-}
-
-impl EventBuffer {
-    pub const fn new() -> Self {
-        Self {
-            reads: Vec::new(),
-            writes: Vec::new(),
-        }
-    }
-}
-
-impl Default for EventBuffer {
-    fn default() -> Self {
-        let mut this = Self::new();
-        this.reads = Vec::with_capacity(4096);
-        this
-    }
+    write_range: Range<usize>,
 }
 
 impl<'a> Events<'a> {
     pub(crate) fn read(
         fanotify: &'a Fanotify,
-        buffer: &'a mut EventBuffer,
+        buffer: &'a mut Vec<u8>,
     ) -> Result<Self, Errno> {
-        let reads = &mut buffer.reads;
-        let writes = &mut buffer.writes;
-
-        reads.clear();
-        writes.clear();
-
+        buffer.clear();
+        
         // want to use this, but it's unstable
         // reads.spare_capacity_mut()
         let read_buffer = {
-            let ptr = reads.as_mut_slice().as_mut_ptr();
-            let len = reads.capacity() * mem::size_of::<u8>();
+            let ptr = buffer.as_mut_slice().as_mut_ptr();
+            let len = buffer.capacity() * mem::size_of::<u8>();
             unsafe { slice::from_raw_parts_mut(ptr, len) }
         };
         let bytes_read = fanotify.fd.read(read_buffer)?;
-        unsafe { reads.set_len(bytes_read) };
-
+        unsafe { buffer.set_len(bytes_read) };
+        
         // id is read here for two reason
         // 1. it caches it for this set of events
         // 2. it ensures the id is correct, b/c if you read the id later,
         //    it could be different than when the read occurred
         let use_tid = fanotify.init.flags().contains(init::Flags::REPORT_TID);
         let id = Id::current(use_tid);
-
+        
         let this = Self {
             fanotify,
             id,
-            reads,
+            buffer,
             read_index: 0,
-            writes,
-            write_index: 0,
+            write_range: (0..0),
         };
         Ok(this)
-    }
-
-    pub fn write(&mut self) -> Result<usize, Errno> {
-        let raw_responses = {
-            let ptr = self.writes.as_slice().as_ptr() as *const u8;
-            let len = mem::size_of_val(self.writes.as_slice());
-            unsafe { slice::from_raw_parts(ptr, len) }
-        };
-        let write_buffer = &raw_responses[self.write_index..];
-        let bytes_written = self.fanotify.fd.write(write_buffer)?;
-        assert!(bytes_written <= write_buffer.len());
-        self.write_index += bytes_written;
-        Ok(bytes_written)
-    }
-
-    fn write_bytes_remaining(&self) -> usize {
-        mem::size_of_val(self.writes.as_slice()) - self.write_index
-    }
-}
-
-impl Drop for Events<'_> {
-    fn drop(&mut self) {
-        while self.write_bytes_remaining() > 0 {
-            self.write().expect(
-                "Events::write() threw in Events::drop().  \
-                To handle this, call Events::write() yourself first."
-            );
-        }
     }
 }
 
@@ -328,13 +298,32 @@ pub enum EventError {
     InvalidFd { fd: FD },
 }
 
+pub type EventResult<'a> = Result<Event<'a>, EventError>;
+
 impl<'a> Events<'a> {
-    fn next_unchecked(& mut self) -> Result<Event<'a>, EventError> {
+    /// Return the next &mut fanotify_response for writing the response to.
+    /// This is a reference into self.buffer, which also contains the fanotify_event_metadatas.
+    /// But since sizeof(fanotify_response) <= sizeof(fanotify_event_metadata),
+    /// I can reuse this space to store the response.
+    fn next_response(&mut self) -> &'a mut fanotify_response {
+        const_assert!(mem::size_of::<fanotify_response>() <= mem::size_of::<fanotify_event_metadata>());
+        let response = self.buffer
+            .as_mut_slice()
+            [self.write_range.end..]
+            .as_mut_ptr()
+            as *mut fanotify_response;
+        let response = unsafe { &mut *response };
+        self.write_range.end += mem::size_of_val(response);
+        assert!(self.write_range.end <= self.read_index);
+        response
+    }
+    
+    fn next_unchecked(&mut self) -> EventResult<'a> {
         use WhatIsTooShort::*;
         use EventError::*;
-
-        let remaining = &self.reads.as_slice()[self.read_index..];
-
+        
+        let remaining = &self.buffer.as_slice()[self.read_index..];
+        
         let too_short = |what: WhatIsTooShort, expected: usize| -> Result<(), EventError> {
             let found = remaining.len();
             if found < expected {
@@ -347,7 +336,7 @@ impl<'a> Events<'a> {
                 Ok(())
             }
         };
-
+        
         let event_len_size = mem::size_of::<u32>();
         // in case we error here, we want read_index to be at the end,
         // so None is returned from next() next time
@@ -359,13 +348,13 @@ impl<'a> Events<'a> {
         let event_len = event.event_len as usize;
         self.read_index += event_len;
         too_short(FullEvent, event_len)?;
-        too_short(BaseEvent, mem::size_of::<fanotify_event_metadata>());
+        too_short(BaseEvent, mem::size_of::<fanotify_event_metadata>())?;
         if event.vers != FANOTIFY_METADATA_VERSION {
             return Err(WrongVersion);
         }
-
+        
         let flags = self.fanotify.init.flags();
-
+        
         if event.mask & FAN_Q_OVERFLOW != 0 {
             let has_unlimited_queue = flags.contains(init::Flags::UNLIMITED_QUEUE);
             return Err(if has_unlimited_queue {
@@ -376,7 +365,7 @@ impl<'a> Events<'a> {
         }
         // type annotated for IDE, since from_bits_truncate is generated
         let mask: MarkMask = MarkMask::from_bits_truncate(event.mask);
-
+        
         let has_no_fd = event.fd == FAN_NOFD;
         let requested_fid = self.fanotify.init.flags().contains(init::Flags::REPORT_FID);
         let received_fid = event_len > mem::size_of::<fanotify_event_metadata>();
@@ -390,8 +379,7 @@ impl<'a> Events<'a> {
                     (false, false) => return Err(FidRequestedButNotReceived),
                     (true, false) => too_short(BaseAndFidEvent, 0
                         + mem::size_of::<fanotify_event_metadata>()
-                        + mem::size_of::<fanotify_event_info_header>()
-                        + mem::size_of::<libc::fsid_t>(),
+                        + mem::size_of::<fanotify_event_info_fid>(),
                     )?,
                     (false, true) => {}
                 }
@@ -404,7 +392,17 @@ impl<'a> Events<'a> {
                 return Err(FidNotRequestedButReceived);
             }
         }
-
+        
+        let raw_id = Pid::from_raw(event.pid);
+        let id = match self.id {
+            Id::Pid(_) => Id::Pid(raw_id),
+            Id::Tid(_) => Id::Tid(raw_id),
+        };
+        let id = EventId {
+            is_generated_by_self: id == self.id,
+            id,
+        };
+        
         let get_fd = || -> Result<FD, EventError> {
             let fd = unsafe { FD::from_raw_fd(event.fd) };
             if !fd.check() {
@@ -412,16 +410,14 @@ impl<'a> Events<'a> {
             }
             Ok(fd)
         };
-
+        
         let file = if is_perm {
             let file = EventFilePermission {
                 fd: get_fd()?,
                 decision: PermissionDecision::default(),
                 audit: false,
-                responses: self.writes,
-                response_index: self.writes.len(),
+                response: self.next_response(),
             };
-            self.writes.push(file.response());
             EventFile::Permission(file)
         } else {
             if received_fid {
@@ -460,17 +456,7 @@ impl<'a> Events<'a> {
                 })
             }
         };
-
-        let raw_id = Pid::from_raw(event.pid);
-        let id = match self.id {
-            Id::Pid(_) => Id::Pid(raw_id),
-            Id::Tid(_) => Id::Tid(raw_id),
-        };
-        let id = EventId {
-            is_generated_by_self: id == self.id,
-            id,
-        };
-
+        
         let this = Event {
             mask,
             id,
@@ -478,17 +464,39 @@ impl<'a> Events<'a> {
         };
         Ok(this)
     }
-}
-
-impl<'a> Iterator for Events<'a> {
-    type Item = Result<Event<'a>, EventError>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let reads = self.reads.as_slice();
-        if mem::size_of_val(reads) <= self.read_index {
+    
+    pub fn next(&mut self) -> Option<EventResult<'a>> {
+        if self.buffer.len() <= self.read_index {
             return None;
         } else {
             Some(self.next_unchecked())
+        }
+    }
+    
+    pub fn for_each<F: Fn(Result<Event<'a>, EventError>)>(&mut self, f: F) {
+        while let Some(event) = self.next() {
+            f(event);
+        }
+    }
+}
+
+impl Events<'_> {
+    pub fn write(&mut self) -> Result<usize, Errno> {
+        let buffer = &self.buffer.as_slice()[self.write_range.start..self.write_range.end];
+        let bytes_written = self.fanotify.fd.write(buffer)?;
+        assert!(bytes_written <= buffer.len());
+        self.write_range.start += bytes_written;
+        Ok(bytes_written)
+    }
+}
+
+impl Drop for Events<'_> {
+    fn drop(&mut self) {
+        while !self.write_range.is_empty() {
+            self.write().expect(
+                "Events::write() threw in Events::drop().  \
+                To handle this, call Events::write() yourself first."
+            );
         }
     }
 }

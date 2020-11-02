@@ -4,7 +4,7 @@ use nix::errno::Errno;
 use thiserror::Error;
 
 use crate::common::FD;
-use crate::event::{EventBuffer, Events};
+use crate::event::Events;
 
 use super::init::{Flags, Init, NotificationClass::Notify, RawInit};
 use super::mark::{Mark, MarkAction::{Add, Remove}, MarkFlags};
@@ -181,7 +181,7 @@ impl Fanotify {
 }
 
 impl Fanotify {
-    pub fn read<'a>(&'a self, buffer: &'a mut EventBuffer) -> Result<Events<'a>, Errno> {
+    pub fn read<'a>(&'a self, buffer: &'a mut Vec<u8>) -> Result<Events<'a>, Errno> {
         Events::read(self, buffer)
     }
 }
