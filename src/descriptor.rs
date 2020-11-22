@@ -1,3 +1,5 @@
+/// `descriptor.rs` contains main libc calls and handles descriptors
+
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 use nix::errno::Errno;
@@ -10,18 +12,22 @@ use super::mark::{Action::{Add, Remove}, Mark};
 use super::util::{ImpossibleSysCallError, libc_call, libc_void_call};
 
 #[derive(Debug)]
+/// A Fanotify object that contains a file descriptor and a init for reference
 pub struct Fanotify {
     pub(crate) fd: FD,
     pub(crate) init: RawInit,
 }
 
 impl AsRawFd for Fanotify {
+    /// Returns a raw file descriptor from the file descriptor of the Fanotify object
+    /// The return value is used for intriguing with other APIs (32-bit integer that is used for interfacing with the OS)
     fn as_raw_fd(&self) -> RawFd {
         self.fd.as_raw_fd()
     }
 }
 
 impl IntoRawFd for Fanotify {
+    /// Returns a raw file descriptor by calling into_raw_fd (self destructing)
     fn into_raw_fd(self) -> RawFd {
         self.fd.into_raw_fd()
     }
@@ -29,6 +35,12 @@ impl IntoRawFd for Fanotify {
 
 // can't impl FromRawFd, but this provides equivalent functionality
 impl Fanotify {
+    /// Returns a new Fanotify object constructed with a rawFd and a rawInit
+    /// 
+    /// # Arguments
+    /// 
+    /// * `fd` = A raw file descriptor used to get get an FD object for constructing the Fanotify object
+    /// * `init` = A raw init used to construct the Fanotify object
     pub unsafe fn from_raw_fd(fd: RawFd, init: RawInit) -> Self {
         Self {
             fd: FD::from_raw_fd(fd),
@@ -38,15 +50,18 @@ impl Fanotify {
 }
 
 impl RawInit {
+    /// Runs a RawInit object and return the result, return either OK or an Error
     pub fn run(self) -> Result<Fanotify, init::Error> {
         use Errno::*;
         use init::Error::*;
         
+        // construct init object with raw init and check for argument errors
         let init = self.undo_raw();
         if init.flags.contains(Flags::REPORT_FID) && init.notification_class != Notify {
             return Err(InvalidArgument);
         }
         
+        // Try to initialize Fanotify with flag then catch and return status
         libc_call(|| unsafe { libc::fanotify_init(self.flags, self.event_flags) })
             .map_err(|errno| match errno {
                 EMFILE => ExceededFanotifyGroupPerProcessLimit,
@@ -76,6 +91,7 @@ impl RawInit {
 }
 
 impl Init {
+    /// Run init object using its raw form
     pub fn run(&self) -> Result<Fanotify, init::Error> {
         self.as_raw().run()
     }
