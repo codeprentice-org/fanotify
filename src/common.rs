@@ -48,13 +48,13 @@ impl FromRawFd for FD {
 /// A File Descriptor, FD, class that has check, read, write and path methods
 
 impl FD {
-    // check returns true if the file descriptor is valid
+    /// check returns true if the file descriptor is valid
     pub fn check(&self) -> bool {
         self.fd >= 0
     }
     
-    // read returns the Result if a file descriptor is read successfully 
-    // with the number of bytes or the error number if unsuccessful
+    /// read returns the Result if a file descriptor is read successfully 
+    /// with the number of bytes or the error number if unsuccessful
     pub fn read(&self, buf: &mut [u8]) -> Result<usize, Errno> {
         let len = cmp::min(buf.len(), libc::ssize_t::MAX as usize) as libc::size_t;
         let buf = buf.as_mut_ptr() as *mut c_void;
@@ -62,8 +62,8 @@ impl FD {
         Ok(bytes_read as usize)
     }
     
-    // write returns the Result if a file descriptor is written successfully 
-    // with the number of bytes or the error number if unsuccessful
+    /// write returns the Result if a file descriptor is written successfully 
+    /// with the number of bytes or the error number if unsuccessful
     pub fn write(&self, buf: &[u8]) -> Result<usize, Errno> {
         if buf.is_empty() {
             return Ok(0);
@@ -74,7 +74,7 @@ impl FD {
         Ok(bytes_written as usize)
     }
     
-    // path returns the link to the open file descriptor 
+    /// path returns the link to the open file descriptor 
     pub fn path(&self) -> io::Result<PathBuf> {
         Path::new("/proc/self/fd")
             .join(self.fd.to_string())
