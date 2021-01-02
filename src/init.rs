@@ -136,6 +136,9 @@ impl Display for Init {
     }
 }
 
+/// [`Init`] flags compressed into the actual flags used in the [`libc::fanotify_init`] call.
+/// You can seamlessly convert back and forth between an [`Init`] and a [`RawInit`].
+/// A [`RawInit`] takes up less memory, but it field accessor operations are more involved than [`Init`]'s.
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
 pub struct RawInit {
     pub(crate) flags: u32,
@@ -206,6 +209,18 @@ impl RawInit {
             rw: self.rw(),
             event_flags: self.event_flags(),
         }
+    }
+}
+
+impl From<Init> for RawInit {
+    fn from(init: Init) -> Self {
+        return init.as_raw()
+    }
+}
+
+impl From<RawInit> for Init {
+    fn from(raw_init: RawInit) -> Self {
+        raw_init.undo_raw()
     }
 }
 
