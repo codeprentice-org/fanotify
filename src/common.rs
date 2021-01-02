@@ -9,6 +9,9 @@ use nix::errno::Errno;
 use super::util::libc_call;
 use std::path::{PathBuf, Path};
 
+/// A wrapper around an open [`RawFd`] file descriptor with RAII semantics
+/// and generic file descriptor related functions
+/// like [`read`](FD::read) and [`write`](FD::write).
 #[derive(Eq, PartialEq, Hash, Debug)]
 pub struct FD {
     fd: RawFd,
@@ -45,25 +48,34 @@ impl FromRawFd for FD {
     }
 }
 
-/// A File Descriptor, FD, class that has check, read, write and path methods
-
 impl FD {
-    /// check returns true if the file descriptor is valid
+    /// Check if the file descriptor is at least possibly valid, i.e. non-negative.
+    ///
+    /// If this returns `false`, then the file descriptor is definitely invalid.
+    ///
+    /// If this returns `true`, then the file descriptor might be valid.
     pub fn check(&self) -> bool {
         self.fd >= 0
     }
     
-    /// read returns the Result if a file descriptor is read successfully 
-    /// with the number of bytes or the error number if unsuccessful
+    /// Read from this file descriptor into the given buffer as much as possible.
+    ///
+    /// Return the number of bytes read like [`libc::read`]
+    /// or the libc [`Errno`] if there was an error.
     pub fn read(&self, buf: &mut [u8]) -> Result<usize, Errno> {
+        if buf.is_empty() {
+            return Ok(0);
+        }
         let len = cmp::min(buf.len(), libc::ssize_t::MAX as usize) as libc::size_t;
         let buf = buf.as_mut_ptr() as *mut c_void;
         let bytes_read = libc_call(|| unsafe { libc::read(self.fd, buf, len) })?;
         Ok(bytes_read as usize)
     }
     
-    /// write returns the Result if a file descriptor is written successfully 
-    /// with the number of bytes or the error number if unsuccessful
+    /// Write from given buffer to this file descriptor as much as possible.
+    ///
+    /// Return the number of bytes written like [`libc::write`]
+    /// or the libc [`Errno`] if there was an error.
     pub fn write(&self, buf: &[u8]) -> Result<usize, Errno> {
         if buf.is_empty() {
             return Ok(0);
@@ -74,7 +86,7 @@ impl FD {
         Ok(bytes_written as usize)
     }
     
-    /// path returns the link to the open file descriptor 
+    /// Resolve this file descriptor to its path using the `/proc` filesystem.
     pub fn path(&self) -> io::Result<PathBuf> {
         Path::new("/proc/self/fd")
             .join(self.fd.to_string())
