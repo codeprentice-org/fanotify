@@ -3,6 +3,9 @@ use std::ops::Neg;
 use nix::errno::Errno;
 use thiserror::Error;
 
+/// This macro gives a 0 or 1 trait for every number type
+/// allows you to write libc generically so that it can 
+/// handle multiple integer types, e.g. i32 or u32
 pub trait ZeroOne {
     const ZERO: Self;
     const ONE: Self;
@@ -16,6 +19,7 @@ macro_rules! impl_zero_one {
 }
 
 impl_zero_one! { u8 i8 u16 i16 u32 i32 u64 i64 usize isize f32 f64 }
+
 
 pub fn libc_call<T: ZeroOne + Copy + Eq + Neg<Output=T>, F: FnOnce() -> T>(f: F) -> Result<T, Errno> {
     Errno::clear();
