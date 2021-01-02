@@ -1,4 +1,4 @@
-/// `descriptor.rs` contains main libc calls and handles descriptors
+/// Contains main syscalls and the main [`Fanotify`] struct.
 
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
@@ -11,23 +11,22 @@ use super::init::{Flags, Init, NotificationClass::Notify, RawInit};
 use super::mark::{Action::{Add, Remove}, Mark};
 use super::util::{ImpossibleSysCallError, libc_call, libc_void_call};
 
+/// The main [`Fanotify`] struct, the primary entry point to the fanotify API.
+///
+/// Contains the fanotify descriptor/group and the flags used to initialize it.
 #[derive(Debug)]
-/// A Fanotify object that contains a file descriptor and a init for reference
 pub struct Fanotify {
     pub(crate) fd: FD,
     pub(crate) init: RawInit,
 }
 
 impl AsRawFd for Fanotify {
-    /// Returns a raw file descriptor from the file descriptor of the Fanotify object
-    /// The return value is used for intriguing with other APIs (32-bit integer that is used for interfacing with the OS)
     fn as_raw_fd(&self) -> RawFd {
         self.fd.as_raw_fd()
     }
 }
 
 impl IntoRawFd for Fanotify {
-    /// Returns a raw file descriptor by calling into_raw_fd (self destructing)
     fn into_raw_fd(self) -> RawFd {
         self.fd.into_raw_fd()
     }
@@ -35,12 +34,9 @@ impl IntoRawFd for Fanotify {
 
 // can't impl FromRawFd, but this provides equivalent functionality
 impl Fanotify {
-    /// Returns a new Fanotify object constructed with a rawFd and a rawInit
-    /// 
-    /// # Arguments
-    /// 
-    /// * `fd` = A raw file descriptor used to get get an FD object for constructing the Fanotify object
-    /// * `init` = A raw init used to construct the Fanotify object
+    /// We can't `impl `[`FromRawFd`]` for `[`Fanotify`] because [`Fanotify`] also contains a [`RawInit`].
+    /// Thus, we provide this analogous unsafe API for constructing a [`Fanotify`] from a [`RawFd`]
+    /// and the corresponding [`RawInit`] flags used to create the [`RawFd`].
     pub unsafe fn from_raw_fd(fd: RawFd, init: RawInit) -> Self {
         Self {
             fd: FD::from_raw_fd(fd),
@@ -50,7 +46,7 @@ impl Fanotify {
 }
 
 impl RawInit {
-    /// Runs a RawInit object and return the result, return either OK or an Error
+    /// Create a [`Fanotify`] using the flags in this [`RawInit`].
     pub fn run(self) -> Result<Fanotify, init::Error> {
         use Errno::*;
         use init::Error::*;
@@ -91,13 +87,15 @@ impl RawInit {
 }
 
 impl Init {
-    /// Run init object using its raw form
+    /// Create a [`Fanotify`] using the flags in this [`Init`].
     pub fn run(&self) -> Result<Fanotify, init::Error> {
         self.as_raw().run()
     }
 }
 
 impl Fanotify {
+    /// The main method that adds a [`Mark`], only it returns just a [`mark::RawError`].
+    /// The below [`mark`](Fanotify::mark) function wraps this into a full [`mark::Error`].
     fn mark_raw_error(&self, mark: &Mark) -> Result<(), mark::RawError> {
         use mark::RawError::*;
         use Errno::*;
@@ -136,6 +134,8 @@ impl Fanotify {
         })
     }
     
+    /// Add a [`Mark`] to this [`Fanotify`] group.
+    /// See [`Mark`] for more details.
     pub fn mark<'a>(&self, mark: Mark<'a>) -> Result<(), mark::Error<'a>> {
         self.mark_raw_error(&mark)
             .map_err(|error| mark::Error { error, mark })
@@ -143,6 +143,8 @@ impl Fanotify {
 }
 
 impl Fanotify {
+    /// Read file events from this [`Fanotify`] group into the given buffer.
+    /// Return an [`Events`] iterator over the individual events.
     pub fn read<'a>(&'a self, buffer: &'a mut Vec<u8>) -> Result<Events<'a>, Errno> {
         Events::read(self, buffer)
     }
