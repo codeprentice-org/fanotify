@@ -153,6 +153,10 @@ impl Mask {
     }
 }
 
+/// A borrowed directory file descriptor with lifetime `'a`.
+///
+/// It contains a [`RawFd`] for the directory file descriptor, which outlives this [`DirFd`].
+/// Thus, the [`RawFd`] is never closed by [`DirFd`].
 // can derive Eq b/c the lifetime ensures the fd survives the DirFd,
 // and while that fd is still valid, I can compare by fd
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
@@ -180,6 +184,8 @@ impl FromRawFd for DirFd<'_> {
 }
 
 impl DirFd<'static> {
+    /// A pseudo [`DirFd`] representing the current working directory
+    /// (at use time, not at the time of this call necessarily).
     pub const fn current_working_directory() -> Self {
         unsafe { Self::const_from_raw_fd(libc::AT_FDCWD) }
     }
@@ -197,6 +203,8 @@ impl<'a> DirFd<'a> {
         }
     }
     
+    /// Create a [`DirFd`] from an existing [`AsRawFd`].
+    /// The [`AsRawFd`] given must point to a directory for things to work correctly.
     pub fn directory<P: AsRawFd>(dir: &'a P) -> Self {
         Self {
             fd: dir.as_raw_fd(),
@@ -204,10 +212,16 @@ impl<'a> DirFd<'a> {
         }
     }
     
+    /// Check if this [`DirFd`] represents the special current working directory file descriptor.
+    ///
+    /// It could be the case that this [`DirFd`] represents the current working directory as `open(".")`,
+    /// but this only checks if this [`DirFd`] is the special file descriptor for the current working directory.
     pub const fn is_current_working_directory(&self) -> bool {
         self.fd == libc::AT_FDCWD
     }
     
+    /// Resolve this [`DirFd`] to its absolute path,
+    /// attempting to use the `/proc` filesystem to resolve the file descriptor.
     pub fn resolve(&self) -> Cow<std::path::Path> {
         if self.is_current_working_directory() {
             Cow::Borrowed(std::path::Path::new("."))
@@ -229,6 +243,7 @@ impl Display for DirFd<'_> {
     }
 }
 
+/// A path that is either absolute or relative to a directory file descriptor ([`DirFd`]).
 #[derive(Eq, PartialEq, Hash)]
 pub struct Path<'a> {
     pub(crate) dir: DirFd<'a>,
@@ -236,6 +251,13 @@ pub struct Path<'a> {
 }
 
 impl Path<'static> {
+    /// A pseudo [`Path<'static>`](Path) representing the current working directory
+    /// (at use time, not at the time of this call necessarily).
+    ///
+    /// It has a `'static` lifetime because there is always a current working directory.
+    /// It always refers to whatever the current working directory is, even after a [`libc::chdir`].
+    ///
+    /// See [`DirFd::current_working_directory`].
     pub const fn current_working_directory() -> Self {
         Self {
             dir: DirFd::current_working_directory(),
@@ -245,6 +267,7 @@ impl Path<'static> {
 }
 
 impl<'a> Path<'a> {
+    /// Create a [`Path`] referring to a directory by its file descriptor ([`DirFd`]).
     pub fn directory<FD: AsRawFd>(dir: &'a FD) -> Self {
         Self {
             dir: DirFd::directory(dir),
@@ -252,6 +275,7 @@ impl<'a> Path<'a> {
         }
     }
     
+    /// Create a [`Path`] relative to the given [`DirFd`] directory.
     pub fn relative_to<FD: AsRawFd, P: AsRef<std::path::Path> + 'a + ?Sized>(dir: &'a FD, path: &'a P) -> Self {
         Self {
             dir: DirFd::directory(dir),
@@ -259,6 +283,7 @@ impl<'a> Path<'a> {
         }
     }
     
+    /// Create a [`Path`] using an absolute path.
     pub fn absolute<P: AsRef<std::path::Path> + 'a + ?Sized>(path: &'a P) -> Self {
         Self {
             dir: unsafe { DirFd::invalid() }, // ignored by fanotify_mark()
@@ -266,6 +291,10 @@ impl<'a> Path<'a> {
         }
     }
     
+    /// Resolve this [`Path`] to its absolute path,
+    /// attempting to use the `/proc` filesystem to resolve the [`DirFd`] directory.
+    ///
+    /// See [`DirFd::resolve`].
     pub fn resolve(&self) -> Cow<std::path::Path> {
         match self.path {
             None => self.dir.resolve(),
