@@ -234,7 +234,7 @@ mod tests {
             let path = Path::new("/proc/self/fd")
                 .join(buf[0].fd.to_string())
                 .read_link()?;
-            assert_eq!(path.parent().unwrap(), Path::new("/usr/bin/ls"));
+            assert_eq!(path.parent().unwrap(), Path::new("/usr/bin"));
             Ok(())
         });
     }
