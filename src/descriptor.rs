@@ -10,13 +10,15 @@ use super::event::Events;
 use super::init::{Flags, Init, NotificationClass::Notify, RawInit};
 use super::mark::{Action::{Add, Remove}, Mark};
 use super::util::{ImpossibleSysCallError, libc_call, libc_void_call};
+use crate::responses::Responses;
 
 /// The main [`Fanotify`] struct, the primary entry point to the fanotify API.
-///
-/// Contains the fanotify descriptor/group and the flags used to initialize it.
 #[derive(Debug)]
 pub struct Fanotify {
+    /// The fanotify descriptor/group.
     pub(crate) fd: FD,
+    
+    /// The flags used to initialize it.
     pub(crate) init: RawInit,
 }
 
@@ -150,13 +152,19 @@ impl Fanotify {
     }
 }
 
+impl Fanotify {
+    pub fn responses(&self) -> Responses {
+        Responses::new(self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::error::Error;
-    use std::mem;
+    use std::{mem, slice};
     use std::path::Path;
     
-    use static_assertions::_core::ptr::slice_from_raw_parts_mut;
+    use std::ptr::slice_from_raw_parts_mut;
     
     use crate::init::{Flags, Init};
     use crate::libc::read::fanotify_event_metadata;
@@ -219,7 +227,7 @@ mod tests {
                 pid: 0
             }; 1];
             fanotify.fd.read(unsafe {
-                &mut *slice_from_raw_parts_mut(
+                slice::from_raw_parts_mut(
                     buf.as_mut_ptr() as *mut u8,
                     mem::size_of::<fanotify_event_metadata>() * buf.len(),
                 )
@@ -237,12 +245,13 @@ mod tests {
         with_fanotify(|fanotify| {
             fanotify.mark(get_mark())?;
             let mut buf = Vec::with_capacity(4096);
-            let mut events = fanotify.read(&mut buf)?;
-            while let Some(event) = events.next() {
-                let event = event?;
-                let path = event.file.fd().unwrap().fd.path()?;
-                assert_eq!(format!("{}", path.display()), "/usr/bin/ls");
-            }
+            let mut responses = fanotify.responses();
+            let events = fanotify.read(&mut buf)?;
+            assert!(events
+                .fds()
+                .map(|it| it.file.fd.path().unwrap())
+                .map(|it| it.display().to_string())
+                .any(|path| path == "/usr/bin/ls"));
             Ok(())
         });
     }

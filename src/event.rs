@@ -1,12 +1,12 @@
 use std::{mem, slice};
 use std::convert::{TryFrom, TryInto};
-use std::ops::Range;
 use std::os::unix::io::{AsRawFd, FromRawFd};
 
 use nix::errno::Errno;
 use nix::unistd::{getpid, gettid, Pid};
-use static_assertions::const_assert;
 use to_trait::To;
+
+use crate::responses::Responses;
 
 use super::{init, mark};
 use super::common::FD;
@@ -137,7 +137,7 @@ impl FileHandle<'_> {
 
 /// A [`REPORT_FID`](init::Flags::REPORT_FID) file event.
 /// Unlike a normal [`FileFD`] event, which contains an opened [`FD`],
-/// it contains a [`FileSystemId`] and an unopened but resolve [`FileHandle`].
+/// it contains a [`FileSystemId`] and an unopened but resolved [`FileHandle`].
 pub struct FileFID<'a> {
     pub info_type: InfoType,
     pub fsid: FileSystemId,
@@ -179,10 +179,33 @@ pub struct FilePermission<'a> {
     pub fd: FD,
     pub decision: PermissionDecision,
     pub audit: bool,
-    response: &'a mut fanotify_response,
+    written: bool,
+    fanotify: &'a Fanotify,
 }
 
-impl FilePermission<'_> {
+impl<'a> FilePermission<'a> {
+    fn new(fanotify: &'a Fanotify, fd: FD) -> Self {
+        Self {
+            fd,
+            decision: PermissionDecision::default(),
+            audit: false,
+            written: false,
+            fanotify,
+        }
+    }
+    
+    pub fn allow(&mut self) {
+        self.decision = Allow;
+    }
+    
+    pub fn deny(&mut self) {
+        self.decision = Deny;
+    }
+    
+    pub fn written(&self) -> bool {
+        self.written
+    }
+    
     /// The raw [`fanotify_response`] representation of this [`FilePermission`].
     fn response(&self) -> fanotify_response {
         let audit = self.audit as u32 * FAN_AUDIT;
@@ -191,22 +214,37 @@ impl FilePermission<'_> {
             response: self.decision.to::<u32>() | audit,
         }
     }
-}
-
-/// Make sure the permission write always goes through
-impl Drop for FilePermission<'_> {
-    fn drop(&mut self) {
-        *self.response = self.response();
-    }
-}
-
-impl FilePermission<'_> {
-    pub fn allow(&mut self) {
-        self.decision = Allow;
+    
+    fn just_write_immediately(&self) -> std::result::Result<(), Errno> {
+        let response = self.response();
+        let bytes_written = self.fanotify.fd.write(response.as_bytes())?;
+        // a write this small should definitely succeed, so only try once
+        match bytes_written {
+            0 => Ok(()),
+            _ => Err(Errno::EAGAIN),
+        }
     }
     
-    pub fn deny(&mut self) {
-        self.decision = Deny;
+    fn just_write_buffered(&self, responses: &mut Responses) {
+        responses.add(&self.response());
+    }
+    
+    pub fn write_immediately(&mut self) -> std::result::Result<(), Errno> {
+        self.just_write_immediately()?;
+        self.written = true;
+        Ok(())
+    }
+    
+    pub fn write_buffered(&mut self, responses: &mut Responses) {
+        self.just_write_buffered(responses);
+        self.written = true;
+    }
+}
+
+/// Make sure the permission has always been written
+impl Drop for FilePermission<'_> {
+    fn drop(&mut self) {
+        assert!(self.written);
     }
 }
 
@@ -243,6 +281,12 @@ impl<'a> File<'a> {
     }
 }
 
+pub struct EventOf<FileT> {
+    pub mask: mark::Mask,
+    pub id: EventId,
+    pub file: FileT,
+}
+
 /// A full file event
 ///
 /// It contains:
@@ -256,23 +300,41 @@ impl<'a> File<'a> {
 /// but some fields, namely the [`FileHandle`],
 /// cannot be copied because they are opaque, variable-length fields.
 /// Thus, they are the only references in the [`Event`].
-pub struct Event<'a> {
-    pub mask: mark::Mask,
-    pub id: EventId,
-    pub file: File<'a>,
+pub type Event<'a> = EventOf<File<'a>>;
+
+impl<'a> Event<'a> {
+    fn into_variant<FileT>(self, project: impl Fn(File<'a>) -> Option<FileT>) -> Option<EventOf<FileT>> {
+        let Self {mask, id, file} = self;
+        Some(EventOf {
+            mask,
+            id,
+            file: project(file)?,
+        })
+    }
+    
+    /// Return the [`FileFD`] variant if it exists.
+    pub fn fd(self) -> Option<EventOf<FileFD>> {
+        self.into_variant(|it| it.fd())
+    }
+    
+    /// Return the [`FileFID`] variant if it exists.
+    pub fn fid(self) -> Option<EventOf<FileFID<'a>>> {
+        self.into_variant(|it| it.fid())
+    }
+    
+    /// Return the [`FilePermission`] variant if it exists.
+    pub fn permission(self) -> Option<EventOf<FilePermission<'a>>> {
+        self.into_variant(|it| it.permission())
+    }
 }
 
 /// A buffer of [`Event`]s from one [`Fanotify::read`] call.
 ///
 /// The individual [`Event`]s can only be iterated over because they are variable-length.
-/// And because [`Events`] is an [`Iterator`](std::iter::Iterator),
-/// it may not point at all the read events anymore after calling [`Self::next`].
 pub struct Events<'a> {
     fanotify: &'a Fanotify,
     id: Id,
     buffer: &'a mut Vec<u8>,
-    read_index: usize,
-    write_range: Range<usize>,
 }
 
 impl<'a> Events<'a> {
@@ -306,11 +368,15 @@ impl<'a> Events<'a> {
             fanotify,
             id,
             buffer,
-            read_index: 0,
-            write_range: (0..0),
         };
         Ok(this)
     }
+}
+
+/// A consuming [`Iterator`] over [`Events`].
+pub struct EventIterator<'a> {
+    events: Events<'a>,
+    read_index: usize,
 }
 
 /// An error where the buffer for an [`Event`] field or struct is too short,
@@ -362,39 +428,17 @@ pub enum Error {
 
 pub type Result<'a> = std::result::Result<Event<'a>, Error>;
 
-impl<'a> Events<'a> {
-    /// Return the next `&mut `[`fanotify_response`] for writing the response to.
-    ///
-    /// This is a reference into [`Self::buffer`],
-    /// which also contains the [`fanotify_event_metadata`]s.
-    /// But since `sizeof(`[`fanotify_response`]`) <= sizeof(`[`fanotify_event_metadata`]`)`,
-    /// I can reuse this space to store the response.
-    ///
-    /// [fanotify_response]: crate::libc::write::fanotify_response
-    /// [fanotify_event_metadata]: crate::libc::read::fanotify_event_metadata
-    fn next_response(&mut self) -> &'a mut fanotify_response {
-        const_assert!(mem::size_of::<fanotify_response>() <= mem::size_of::<fanotify_event_metadata>());
-        let response = self.buffer
-            .as_mut_slice()
-            [self.write_range.end..]
-            .as_mut_ptr()
-            as *mut fanotify_response;
-        let response = unsafe { &mut *response };
-        self.write_range.end += mem::size_of_val(response);
-        assert!(self.write_range.end <= self.read_index);
-        response
-    }
-    
+impl<'a> EventIterator<'a> {
     /// Like [`Self::next`] except it doesn't check if there is still more room in the events buffer
     /// so it returns a plain [`Result`] instead of an [`Option`]`<`[`Result`]`>`.
     ///
-    /// This is only called from [`Self::next`] so it's safe.
+    /// This is only called from [`next`](EventIterator::next) so it's safe.
     /// It's just used to avoid nesting the [`Option`] and [`Result`].
     fn next_unchecked(&mut self) -> Result<'a> {
         use WhatIsTooShort::*;
         use Error::*;
         
-        let remaining = &self.buffer.as_slice()[self.read_index..];
+        let remaining = &self.events.buffer.as_slice()[self.read_index..];
         
         let too_short = |what: WhatIsTooShort, expected: usize| -> std::result::Result<(), Error> {
             let found = remaining.len();
@@ -425,7 +469,7 @@ impl<'a> Events<'a> {
             return Err(WrongVersion);
         }
         
-        let flags = self.fanotify.init.flags();
+        let flags = self.events.fanotify.init.flags();
         
         if event.mask & FAN_Q_OVERFLOW != 0 {
             let has_unlimited_queue = flags.contains(init::Flags::UNLIMITED_QUEUE);
@@ -439,7 +483,7 @@ impl<'a> Events<'a> {
         let mask: mark::Mask = mark::Mask::from_bits_truncate(event.mask);
         
         let has_no_fd = event.fd == FAN_NOFD;
-        let requested_fid = self.fanotify.init.flags().contains(init::Flags::REPORT_FID);
+        let requested_fid = flags.contains(init::Flags::REPORT_FID);
         let received_fid = event_len > mem::size_of::<fanotify_event_metadata>();
         let is_perm = mask.includes_permission();
         if requested_fid {
@@ -466,12 +510,13 @@ impl<'a> Events<'a> {
         }
         
         let raw_id = Pid::from_raw(event.pid);
-        let id = match self.id {
+        let own_id = self.events.id;
+        let id = match own_id {
             Id::Pid(_) => Id::Pid(raw_id),
             Id::Tid(_) => Id::Tid(raw_id),
         };
         let id = EventId {
-            is_generated_by_self: id == self.id,
+            is_generated_by_self: id == own_id,
             id,
         };
         
@@ -484,13 +529,7 @@ impl<'a> Events<'a> {
         };
         
         let file = if is_perm {
-            let file = FilePermission {
-                fd: get_fd()?,
-                decision: PermissionDecision::default(),
-                audit: false,
-                response: self.next_response(),
-            };
-            File::Permission(file)
+            File::Permission(FilePermission::new(self.events.fanotify, get_fd()?))
         } else {
             if received_fid {
                 // already checked that we have enough bytes for this
@@ -536,40 +575,54 @@ impl<'a> Events<'a> {
         };
         Ok(this)
     }
+}
+
+impl<'a> Iterator for EventIterator<'a> {
+    type Item = Result<'a>;
     
-    pub fn next(&mut self) -> Option<Result<'a>> {
-        if self.buffer.len() <= self.read_index {
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.events.buffer.len() <= self.read_index {
             return None;
         } else {
             Some(self.next_unchecked())
         }
     }
+}
+
+impl<'a> IntoIterator for Events<'a> {
+    type Item = Result<'a>;
+    type IntoIter = EventIterator<'a>;
     
-    /// Run `f` for each [`Event`] in this [`Events`].
-    pub fn for_each<F: Fn(Result<'a>)>(&mut self, f: F) {
-        while let Some(event) = self.next() {
-            f(event);
-        }
+    fn into_iter(self) -> Self::IntoIter {
+        EventIterator { events: self, read_index: 0 }
     }
 }
 
-impl Events<'_> {
-    pub fn write(&mut self) -> std::result::Result<usize, Errno> {
-        let buffer = &self.buffer.as_slice()[self.write_range.start..self.write_range.end];
-        let bytes_written = self.fanotify.fd.write(buffer)?;
-        assert!(bytes_written <= buffer.len());
-        self.write_range.start += bytes_written;
-        Ok(bytes_written)
+impl<'a> Events<'a> {
+    /// An [`Iterator`] over all [`Result`]s, so including errors and [`Event`]s.
+    pub fn all(self) -> impl Iterator<Item = Result<'a>> {
+        self.into_iter()
     }
-}
-
-impl Drop for Events<'_> {
-    fn drop(&mut self) {
-        while !self.write_range.is_empty() {
-            self.write().expect(
-                "Events::write() threw in Events::drop().  \
-                To handle this, call Events::write() yourself first."
-            );
-        }
+    
+    /// An [`Iterator`] over all non-error [`Event`]s.
+    pub fn ok(self) -> impl Iterator<Item = Event<'a>> {
+        self.all().filter_map(|it| it.ok())
+    }
+    
+    // TODO may want to check here based on fanotify flags if these are possible before cast-filtering
+    
+    /// An [`Iterator`] over all [`Event`]s containing a [`FileFD`].
+    pub fn fds(self) -> impl Iterator<Item = EventOf<FileFD>> + 'a {
+        self.ok().filter_map(|it| it.fd())
+    }
+    
+    /// An [`Iterator`] over all [`Event`]s containing a [`FileFID`].
+    pub fn fids(self) -> impl Iterator<Item = EventOf<FileFID<'a>>> {
+        self.ok().filter_map(|it| it.fid())
+    }
+    
+    /// An [`Iterator`] over all [`Event`]s containing a [`FilePermission`].
+    pub fn permissions(self) -> impl Iterator<Item = EventOf<FilePermission<'a>>> {
+        self.ok().filter_map(|it| it.permission())
     }
 }
