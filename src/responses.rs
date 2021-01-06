@@ -1,11 +1,9 @@
 use std::mem::size_of;
-use std::ptr::slice_from_raw_parts;
 
 use nix::errno::Errno;
 
 use crate::descriptor::Fanotify;
 use crate::libc::write::fanotify_response;
-use crate::event::Event;
 use std::slice;
 
 impl fanotify_response {
@@ -26,15 +24,18 @@ impl fanotify_response {
     }
 }
 
-/// A buffer of responses to fanotify [`Event`]s.
+/// A buffer of responses to fanotify [`Event`](crate::event::Event)s.
 ///
 /// In order to buffer the responses to avoid many [`write`](libc::write)s,
-/// it is necessary to keep this [`Responses`] buffer separate from the [`Event`]s themselves,
+/// it is necessary to keep this [`Responses`] buffer
+/// separate from the [`Event`](crate::event::Event)s themselves,
 /// due to lifetime, mutability, and [`Iterator`] requirements.
 ///
 /// A [`Responses`] buffer can be explicitly written to its [`Fanotify`] instance
 /// using [`Responses::write`] or [`Responses::write_all`],
 /// or else the write will be attempted in [`Responses::drop`].
+///
+///
 pub struct Responses<'a> {
     fanotify: &'a Fanotify,
     responses: Vec<u8>,

@@ -430,7 +430,7 @@ pub type Result<'a> = std::result::Result<Event<'a>, Error>;
 
 impl<'a> EventIterator<'a> {
     /// Like [`Self::next`] except it doesn't check if there is still more room in the events buffer
-    /// so it returns a plain [`Result`] instead of an [`Option`]`<`[`Result`]`>`.
+    /// so it returns a plain [`Result`] instead of an [`Option<Result>`].
     ///
     /// This is only called from [`next`](EventIterator::next) so it's safe.
     /// It's just used to avoid nesting the [`Option`] and [`Result`].

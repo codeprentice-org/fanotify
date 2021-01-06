@@ -164,8 +164,6 @@ mod tests {
     use std::{mem, slice};
     use std::path::Path;
     
-    use std::ptr::slice_from_raw_parts_mut;
-    
     use crate::init::{Flags, Init};
     use crate::libc::read::fanotify_event_metadata;
     use crate::{mark, init};
