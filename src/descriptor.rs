@@ -234,7 +234,7 @@ mod tests {
             let path = Path::new("/proc/self/fd")
                 .join(buf[0].fd.to_string())
                 .read_link()?;
-            assert_eq!(format!("{}", path.display()), "/usr/bin/ls");
+            assert_eq!(path.parent().unwrap(), Path::new("/usr/bin/ls"));
             Ok(())
         });
     }
@@ -249,7 +249,7 @@ mod tests {
             assert!(events
                 .fds()
                 .map(|it| it.file.fd.path().expect("/proc doesn't work"))
-                .any(|it| it.parent() == Some(Path::new("/usr/bin")))
+                .any(|it| it.parent().unwrap() == Path::new("/usr/bin"))
             );
             Ok(())
         });
