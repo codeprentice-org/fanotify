@@ -4,13 +4,14 @@ use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 use nix::errno::Errno;
 
+use crate::responses::Responses;
+
 use super::{init, mark};
 use super::common::FD;
 use super::event::Events;
 use super::init::{Flags, Init, NotificationClass::Notify, RawInit};
 use super::mark::{Action::{Add, Remove}, Mark};
 use super::util::{ImpossibleSysCallError, libc_call, libc_void_call};
-use crate::responses::Responses;
 
 /// The main [`Fanotify`] struct, the primary entry point to the fanotify API.
 #[derive(Debug)]
@@ -160,17 +161,17 @@ impl Fanotify {
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
     use std::{mem, slice};
+    use std::error::Error;
     use std::path::Path;
     
+    use crate::{init, mark};
+    use crate::descriptor::Fanotify;
     use crate::init::{Flags, Init};
     use crate::libc::read::fanotify_event_metadata;
-    use crate::{mark, init};
     use crate::mark::Mark;
     use crate::mark::OneAction::Add;
     use crate::mark::What::MountPoint;
-    use crate::descriptor::Fanotify;
     
     const fn get_init() -> Init {
         Init {
@@ -222,7 +223,7 @@ mod tests {
                 metadata_len: 0,
                 mask: 0,
                 fd: 0,
-                pid: 0
+                pid: 0,
             }; 1];
             fanotify.fd.read(unsafe {
                 slice::from_raw_parts_mut(
@@ -247,9 +248,9 @@ mod tests {
             let events = fanotify.read(&mut buf)?;
             assert!(events
                 .fds()
-                .map(|it| it.file.fd.path().unwrap())
-                .map(|it| it.display().to_string())
-                .any(|path| path == "/usr/bin/ls"));
+                .map(|it| it.file.fd.path().expect("/proc doesn't work"))
+                .any(|it| it.parent() == Some(Path::new("/usr/bin")))
+            );
             Ok(())
         });
     }
