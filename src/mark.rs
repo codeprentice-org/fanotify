@@ -1,20 +1,30 @@
-use std::borrow::Cow;
-use std::ffi::CString;
-use std::fmt::{Debug, Display, Formatter};
-use std::fmt;
-use std::marker::PhantomData;
-use std::os::raw::c_char;
-use std::os::unix::ffi::OsStringExt;
-use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use std::{
+    borrow::Cow,
+    ffi::CString,
+    fmt::{Debug, Display, Formatter},
+    fmt,
+    marker::PhantomData,
+    os::{
+        raw::c_char,
+        unix::{
+            ffi::OsStringExt,
+            io::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
+        },
+    },
+};
 
 use bitflags::bitflags;
 use thiserror::Error;
 
-use super::init;
-use super::libc::mark::{action, flag, mask, what};
+use super::{
+    init,
+    libc::mark::{action, flag, mask, what},
+};
 
-use self::Action::Flush;
-use self::StaticError::EmptyMask;
+use self::{
+    Action::Flush,
+    StaticError::EmptyMask,
+};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum OneAction {
@@ -246,8 +256,8 @@ impl Display for DirFd<'_> {
 /// A path that is either absolute or relative to a directory file descriptor ([`DirFd`]).
 #[derive(Eq, PartialEq, Hash)]
 pub struct Path<'a> {
-    pub(crate) dir: DirFd<'a>,
-    pub(crate) path: Option<&'a std::path::Path>,
+    pub(super) dir: DirFd<'a>,
+    pub(super) path: Option<&'a std::path::Path>,
 }
 
 impl Path<'static> {
@@ -340,11 +350,11 @@ pub struct One<'a> {
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct Mark<'a> {
-    pub(crate) action: Action,
-    pub(crate) what: What,
-    pub(crate) flags: Flags,
-    pub(crate) mask: Mask,
-    pub(crate) path: Path<'a>,
+    pub(super) action: Action,
+    pub(super) what: What,
+    pub(super) flags: Flags,
+    pub(super) mask: Mask,
+    pub(super) path: Path<'a>,
 }
 
 impl Display for Mark<'_> {
@@ -397,10 +407,10 @@ type RawFlags = u32;
 
 #[derive(Debug, PartialEq, Hash)]
 pub struct RawMark {
-    pub(crate) flags: u32,
-    pub(crate) mask: u64,
-    pub(crate) dir_fd: RawFd,
-    pub(crate) path: Option<CString>,
+    pub(super) flags: u32,
+    pub(super) mask: u64,
+    pub(super) dir_fd: RawFd,
+    pub(super) path: Option<CString>,
 }
 
 impl RawMark {

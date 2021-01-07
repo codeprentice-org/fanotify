@@ -1,13 +1,20 @@
-use std::{cmp, fmt, mem, io};
-use std::fmt::{Display, Formatter};
-use std::os::raw::c_void;
-use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use std::{
+    cmp,
+    fmt,
+    mem,
+    io,
+    fmt::{Display, Formatter},
+    os::{
+        raw::c_void,
+        unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
+    },
+    path::{PathBuf, Path},
+};
 
 use libc;
 use nix::errno::Errno;
 
 use super::util::libc_call;
-use std::path::{PathBuf, Path};
 
 /// A wrapper around an open [`RawFd`] file descriptor with RAII semantics
 /// and generic file descriptor related functions

@@ -1,15 +1,22 @@
-use std::fmt::{Debug, Display};
-use std::fmt;
+use std::{
+    fmt::{Debug, Display, Formatter},
+    fmt,
+};
 
 use bitflags::bitflags;
-use static_assertions::_core::fmt::Formatter;
-use static_assertions::const_assert_eq;
+use static_assertions::{
+    const_assert_eq,
+};
 
-use super::common::FD;
-use super::libc::init::{flag, notification_class};
+use super::{
+    common::FD,
+    libc::init::{flag, notification_class},
+};
 
-use self::NotificationClass::{Content, Notify, PreContent};
-use self::ReadWrite::{Read, ReadAndWrite, Write};
+use self::{
+    NotificationClass::{Content, Notify, PreContent},
+    ReadWrite::{Read, ReadAndWrite, Write},
+};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(u32)]
@@ -141,8 +148,8 @@ impl Display for Init {
 /// A [`RawInit`] takes up less memory, but it field accessor operations are more involved than [`Init`]'s.
 #[derive(Debug, Eq, PartialEq, Hash, Copy, Clone)]
 pub struct RawInit {
-    pub(crate) flags: u32,
-    pub(crate) event_flags: u32,
+    pub(super) flags: u32,
+    pub(super) event_flags: u32,
 }
 
 impl Init {

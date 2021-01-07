@@ -4,23 +4,24 @@ use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 use nix::errno::Errno;
 
-use crate::responses::Responses;
-
-use super::{init, mark};
-use super::common::FD;
-use super::event::Events;
-use super::init::{Flags, Init, NotificationClass::Notify, RawInit};
-use super::mark::{Action::{Add, Remove}, Mark};
-use super::util::{ImpossibleSysCallError, libc_call, libc_void_call};
+use super::{
+    init,
+    mark,
+    common::FD,
+    event::events::Events,
+    init::{Flags, Init, NotificationClass::Notify, RawInit},
+    mark::{Action::{Add, Remove}, Mark},
+    util::{ImpossibleSysCallError, libc_call, libc_void_call},
+};
 
 /// The main [`Fanotify`] struct, the primary entry point to the fanotify API.
 #[derive(Debug)]
 pub struct Fanotify {
     /// The fanotify descriptor/group.
-    pub(crate) fd: FD,
+    pub(super) fd: FD,
     
     /// The flags used to initialize it.
-    pub(crate) init: RawInit,
+    pub(super) init: RawInit,
 }
 
 impl AsRawFd for Fanotify {
@@ -153,12 +154,6 @@ impl Fanotify {
     }
 }
 
-impl Fanotify {
-    pub fn responses(&self) -> Responses {
-        Responses::new(self)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::{mem, slice};
@@ -244,7 +239,6 @@ mod tests {
         with_fanotify(|fanotify| {
             fanotify.mark(get_mark())?;
             let mut buf = Vec::with_capacity(4096);
-            let mut responses = fanotify.responses();
             let events = fanotify.read(&mut buf)?;
             assert!(events
                 .fds()
