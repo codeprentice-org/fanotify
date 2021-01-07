@@ -91,7 +91,7 @@ impl<'a> Events<'a> {
 
 impl<'a> Events<'a> {
     /// An [`Iterator`] over all [`Result`]s, so including errors and [`Event`]s.
-    pub fn all(self) -> impl Iterator<Item=error::Result<'a>> {
+    pub fn all(self) -> impl Iterator<Item=error::EventResult<'a>> {
         self.into_iter()
     }
     

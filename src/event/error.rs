@@ -3,14 +3,14 @@ use crate::{
     init,
 };
 
-use crate::event::event::Event;
+use super::event::Event;
 
 /// An error where the buffer for an [`Event`] field or struct is too short,
 /// so the full field or struct cannot be read.
 ///
 /// TODO document each error
 #[derive(thiserror::Error, Debug)]
-pub enum WhatIsTooShort {
+pub enum TooShortError {
     #[error("u32 fanotify_event_metadata::event_len field")]
     EventLenField,
     #[error("full event according to fanotify_event_metadata::event_len")]
@@ -27,14 +27,14 @@ pub enum WhatIsTooShort {
 ///
 /// TODO document each error
 #[derive(thiserror::Error, Debug)]
-pub enum Error {
+pub enum EventError {
     #[error("the fanotify queue overflowed")]
     QueueOverflowed,
     #[error("the fanotify event has the wrong version so it can't be handled")]
     WrongVersion,
     #[error("the data read ({} bytes) is too short for a full event ({} bytes), specifically, the {}", .found, .expected, .what)]
     TooShort {
-        what: WhatIsTooShort,
+        what: TooShortError,
         found: usize,
         expected: usize,
     },
@@ -52,4 +52,4 @@ pub enum Error {
     InvalidFd { fd: FD },
 }
 
-pub type Result<'a> = std::result::Result<Event<'a>, Error>;
+pub type EventResult<'a> = Result<Event<'a>, EventError>;

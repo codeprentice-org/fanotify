@@ -24,7 +24,7 @@ use crate::{
 
 use super::{
     error,
-    error::{Error, WhatIsTooShort},
+    error::{EventError, TooShortError},
     event::Event,
     events::Events,
     file::{
@@ -48,13 +48,13 @@ impl<'a> EventIterator<'a> {
     ///
     /// This is only called from [`next`](EventIterator::next) so it's safe.
     /// It's just used to avoid nesting the [`Option`] and [`Result`].
-    fn next_unchecked(&mut self) -> error::Result<'a> {
-        use super::error::Error::*;
-        use super::error::WhatIsTooShort::*;
+    fn next_unchecked(&mut self) -> error::EventResult<'a> {
+        use super::error::EventError::*;
+        use super::error::TooShortError::*;
         
         let remaining = &self.events.as_bytes()[self.read_index..];
         
-        let too_short = |what: WhatIsTooShort, expected: usize| -> std::result::Result<(), Error> {
+        let too_short = |what: TooShortError, expected: usize| -> std::result::Result<(), EventError> {
             let found = remaining.len();
             if found < expected {
                 return Err(TooShort {
@@ -134,7 +134,7 @@ impl<'a> EventIterator<'a> {
             id,
         };
         
-        let get_fd = || -> std::result::Result<FD, Error> {
+        let get_fd = || -> std::result::Result<FD, EventError> {
             let fd = unsafe { FD::from_raw_fd(event.fd) };
             if !fd.check() {
                 return Err(InvalidFd { fd });
@@ -192,7 +192,7 @@ impl<'a> EventIterator<'a> {
 }
 
 impl<'a> Iterator for EventIterator<'a> {
-    type Item = error::Result<'a>;
+    type Item = error::EventResult<'a>;
     
     fn next(&mut self) -> Option<Self::Item> {
         if self.events.as_bytes().len() <= self.read_index {
@@ -204,7 +204,7 @@ impl<'a> Iterator for EventIterator<'a> {
 }
 
 impl<'a> IntoIterator for Events<'a> {
-    type Item = error::Result<'a>;
+    type Item = error::EventResult<'a>;
     type IntoIter = EventIterator<'a>;
     
     fn into_iter(self) -> Self::IntoIter {
