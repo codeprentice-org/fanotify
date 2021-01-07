@@ -31,6 +31,10 @@ impl fanotify_response {
 
 // TODO figure out a way to reuse this buffer b/w Events reads
 
+/// A buffer of responses to fanotify [`Event`](super::event::Event)s.
+///
+/// A [`ResponseBuffer`] can be explicitly written to a [`Fanotify`] instance
+/// using [`ResponseBuffer::write`] or [`ResponseBuffer::write_all`].
 #[derive(Default)]
 struct ResponseBuffer {
     buffer: Vec<u8>,
@@ -56,7 +60,7 @@ impl ResponseBuffer {
     
     /// Attempt to [`write`](libc::write) the buffer to the [`Fanotify`] instance.
     /// It also removes what has been written from the buffer,
-    /// so this method can be called repeatedly until [`Responses::is_empty`] is true.
+    /// so this method can be called repeatedly until [`ResponseBuffer::is_empty`] is true.
     fn write(&mut self, fanotify: &Fanotify) -> Result<usize, Errno> {
         let bytes_written = fanotify.fd.write(self.buffer.as_slice())?;
         // this drain call is O(n) even for small bytes_written, so write_all() is O(n^2)
@@ -69,7 +73,7 @@ impl ResponseBuffer {
     
     /// Write the entire buffer to the [`Fanotify`] instance.
     ///
-    /// This keeps calling [`Responses::write`] until either
+    /// This keeps calling [`ResponseBuffer::write`] until either
     /// all of the responses have been written
     /// or one of the writes throws an error, in which case we exit early with the error.
     fn write_all(&mut self, fanotify: &Fanotify) -> Result<(), Errno> {
@@ -80,18 +84,19 @@ impl ResponseBuffer {
     }
 }
 
-/// A buffer of responses to fanotify [`Event`](crate::event::Event)s.
+/// A buffer of responses to fanotify [`Event`](super::event::Event)s.
 ///
-/// In order to buffer the responses to avoid many [`write`](libc::write)s,
-/// it is necessary to keep this [`Responses`] buffer
-/// separate from the [`Event`](crate::event::Event)s themselves,
-/// due to lifetime, mutability, and [`Iterator`] requirements.
+/// A [`fanotify_response`] can be written to this [`Responses`] buffer
+/// either using [`Responses::write_immediately`],
+/// which immediately writes it to its [`Fanotify`] instance,
+/// or using [`Responses::write_buffered`],
+/// which writes it to the buffer of responses.
 ///
-/// A [`Responses`] buffer can be explicitly written to its [`Fanotify`] instance
-/// using [`Responses::write`] or [`Responses::write_all`],
-/// or else the write will be attempted in [`Responses::drop`].
-///
-///
+/// Then this buffer can be written to its [`Fanotify`] instance,
+/// either explicitly with [`Responses::flush`] or [`Responses::flush_all`],
+/// or implicitly on [`Responses::drop`].
+/// Errors can only be handled when flushing it explicitly, however,
+/// since errors can't be returned from [`Drop::drop`].
 pub struct Responses<'a> {
     fanotify: &'a Fanotify,
     responses: RefCell<ResponseBuffer>,
@@ -114,6 +119,7 @@ impl<'a> Responses<'a> {
         !self.is_empty()
     }
     
+    /// [`Write`](libc::write) a raw [`fanotify_response`] immediately to the [`Fanotify`] instance.
     pub(super) fn write_immediately(&self, response: &fanotify_response) -> Result<(), Errno> {
         let bytes_written = self.fanotify.fd.write(response.as_bytes())?;
         // a write this small should definitely succeed, so only try once
@@ -123,7 +129,7 @@ impl<'a> Responses<'a> {
         }
     }
     
-    /// Add another raw [`fanotify_response`] to the buffer.
+    /// Write a raw [`fanotify_response`] to the buffer.
     pub(super) fn write_buffered(&self, response: &fanotify_response) {
         self.responses.borrow_mut().add(response);
     }
@@ -137,7 +143,7 @@ impl<'a> Responses<'a> {
     
     /// Write the entire buffer to the [`Fanotify`] instance.
     ///
-    /// This keeps calling [`Responses::write`] until either
+    /// This keeps calling [`Responses::flush`] until either
     /// all of the responses have been written
     /// or one of the writes throws an error, in which case we exit early with the error.
     pub fn flush_all(&self) -> Result<(), Errno> {
@@ -145,14 +151,14 @@ impl<'a> Responses<'a> {
     }
 }
 
-/// Make sure the responses always get written by calling [`Responses::write_all`].
+/// Make sure the responses always get written by calling [`Responses::flush_all`].
 ///
 /// See [`Responses::drop`].
 impl Drop for Responses<'_> {
-    /// Make sure the responses always get written by calling [`Responses::write_all`].
+    /// Make sure the responses always get written by calling [`Responses::flush_all`].
     ///
     /// This panics on error.
-    /// To handle the error, first call [`Responses::write_all`] until it returns `Ok(())`.
+    /// To handle the error, first call [`Responses::flush_all`] until it returns `Ok(())`.
     fn drop(&mut self) {
         self.flush_all().expect(
             "Responses::write_all() threw in Responses::drop().  \

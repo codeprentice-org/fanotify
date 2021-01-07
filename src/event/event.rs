@@ -26,7 +26,7 @@ pub struct EventOf<FileT> {
 /// Most of the [`Event`] is copied from
 /// the raw [`fanotify_event_metadata`](crate::libc::read::fanotify_event_metadata)
 /// and [`fanotify_event_info_fid`](crate::libc::read::fanotify_event_info_fid) structs,
-/// but some fields, namely the [`FileHandle`],
+/// but some fields, namely the [`FileHandle`](super::file::fid::FileHandle),
 /// cannot be copied because they are opaque, variable-length fields.
 /// Thus, they are the only references in the [`Event`].
 pub type Event<'a> = EventOf<File<'a>>;

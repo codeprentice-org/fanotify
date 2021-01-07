@@ -21,8 +21,8 @@ pub enum PermissionDecision {
     Deny,
 }
 
-// in case the user forgets to make a permission decision,
-// we want to allow by default so everything doesn't get blocked by default
+/// In case the user forgets to make a permission decision,
+/// we want to allow by default so everything doesn't get blocked by default.
 impl Default for PermissionDecision {
     fn default() -> Self {
         Allow
@@ -38,12 +38,13 @@ impl From<PermissionDecision> for u32 {
     }
 }
 
-/// Like a [`FileFD`] event, except it is a permission event
+/// Like a [`FileFD`](super::fd::FileFD) event, except it is a permission event
 /// and thus you must make a permission decision.
 ///
 /// Set [`Self::decision`] for the permission decision (it defaults to [`Allow`]).
 /// [`Self::audit`] can also be set to tell the kernel to audit this permission decision.
-/// The decision is written once all [`FilePermission`]s from this [`Fanotify::read`] call are dropped.
+/// The decision is written once all [`FilePermission`]s
+/// from this [`Fanotify::read`](crate::descriptor::Fanotify::read) call are dropped.
 pub struct FilePermission<'a> {
     pub fd: FD,
     pub decision: PermissionDecision,
@@ -84,7 +85,7 @@ impl<'a> FilePermission<'a> {
         }
     }
     
-    /// Write the response immediately to the [`Fanotify`].
+    /// Write the response immediately to the [`Fanotify`](crate::descriptor::Fanotify).
     ///
     /// Return if the response is written (it can only be written successfully once).
     pub fn write_immediately(&mut self) -> std::result::Result<bool, Errno> {

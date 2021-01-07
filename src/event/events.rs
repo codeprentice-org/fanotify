@@ -54,7 +54,8 @@ impl<'a> Events<'a> {
 impl<'a> Events<'a> {
     /// Construct an [`Events`] by reading from a [`Fanotify`] into a given buffer.
     ///
-    /// Returns an error only if the [`FD::read`] call returns an [`Errno`], which wraps [`libc::read`].
+    /// Returns an error only if the [`FD::read`](crate::common::FD::read) call
+    /// returns an [`Errno`], which wraps [`libc::read`].
     pub(in super::super) fn read(
         fanotify: &'a Fanotify,
         buffer: &'a mut Vec<u8>,

@@ -67,8 +67,8 @@ impl FileHandle<'_> {
     }
 }
 
-/// A [`REPORT_FID`](init::Flags::REPORT_FID) file event.
-/// Unlike a normal [`FileFD`] event, which contains an opened [`FD`],
+/// A [`REPORT_FID`](crate::init::Flags::REPORT_FID) file event.
+/// Unlike a normal [`FileFD`](super::fd::FileFD) event, which contains an opened [`FD`],
 /// it contains a [`FileSystemId`] and an unopened but resolved [`FileHandle`].
 pub struct FileFID<'a> {
     pub info_type: InfoType,
