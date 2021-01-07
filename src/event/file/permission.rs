@@ -12,6 +12,7 @@ use crate::{
 use super::super::responses::Responses;
 
 use self::PermissionDecision::{Allow, Deny};
+use crate::event::file::GetFD;
 
 /// A permission decision for a file event, either [`Allow`] or [`Deny`].
 /// Defaults to [`Allow`].
@@ -46,11 +47,17 @@ impl From<PermissionDecision> for u32 {
 /// The decision is written once all [`FilePermission`]s
 /// from this [`Fanotify::read`](crate::descriptor::Fanotify::read) call are dropped.
 pub struct FilePermission<'a> {
-    pub fd: FD,
+    fd: FD,
     pub decision: PermissionDecision,
     pub audit: bool,
     written: bool,
-    pub responses: Rc<Responses<'a>>,
+    responses: Rc<Responses<'a>>,
+}
+
+impl GetFD for FilePermission<'_> {
+    fn fd(&self) -> &FD {
+        &self.fd
+    }
 }
 
 impl<'a> FilePermission<'a> {

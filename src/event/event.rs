@@ -11,9 +11,27 @@ use super::{
 };
 
 pub struct EventOf<FileT> {
-    pub mask: mark::Mask,
-    pub id: EventId,
-    pub file: FileT,
+    pub(super) mask: mark::Mask,
+    pub(super) id: EventId,
+    pub(super) file: FileT,
+}
+
+impl<FileT> EventOf<FileT> {
+    pub fn mask(&self) -> mark::Mask {
+        self.mask
+    }
+    
+    pub fn id(&self) -> &EventId {
+        &self.id
+    }
+    
+    pub fn file(&self) -> &FileT {
+        &self.file
+    }
+    
+    pub fn into_file(self) -> FileT {
+        self.file
+    }
 }
 
 /// A full file event

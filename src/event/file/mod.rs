@@ -1,10 +1,15 @@
 use crate::event::file::fd::FileFD;
 use crate::event::file::fid::FileFID;
 use crate::event::file::permission::FilePermission;
+use crate::common::FD;
 
 pub mod fd;
 pub mod fid;
 pub mod permission;
+
+pub trait GetFD {
+    fn fd(&self) -> &FD;
+}
 
 /// An enum of the different kinds of file events.
 pub enum File<'a> {

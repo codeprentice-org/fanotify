@@ -28,6 +28,7 @@ pub enum InfoType {
 impl TryFrom<u8> for InfoType {
     type Error = u8;
     
+    /// Try to deserialize from a [`u8`].
     fn try_from(value: u8) -> std::result::Result<Self, Self::Error> {
         use InfoType::*;
         let this = match value {
@@ -41,6 +42,7 @@ impl TryFrom<u8> for InfoType {
 }
 
 impl From<InfoType> for u8 {
+    /// Serialize as a [`u8`].
     fn from(this: InfoType) -> Self {
         use InfoType::*;
         match this {
@@ -54,7 +56,7 @@ impl From<InfoType> for u8 {
 /// An opaque handle to a file.
 /// This is like an absolute [`Path`](std::path::Path), except it is already resolved by the filesystem.
 /// But unlike a [`RawFd`](std::os::unix::io::RawFd), it's not opened yet.
-/// It can be opened by calling [`Self::open()`].
+/// It can be opened by calling [`Self::open`].
 pub struct FileHandle<'a> {
     pub(in super::super) handle: &'a fanotify_event_file_handle,
 }
@@ -71,7 +73,21 @@ impl FileHandle<'_> {
 /// Unlike a normal [`FileFD`](super::fd::FileFD) event, which contains an opened [`FD`],
 /// it contains a [`FileSystemId`] and an unopened but resolved [`FileHandle`].
 pub struct FileFID<'a> {
-    pub info_type: InfoType,
-    pub fsid: FileSystemId,
-    pub handle: FileHandle<'a>,
+    pub(in super::super) info_type: InfoType,
+    pub(in super::super) file_system_id: FileSystemId,
+    pub(in super::super) handle: FileHandle<'a>,
+}
+
+impl<'a> FileFID<'a> {
+    pub fn info_type(&self) -> InfoType {
+        self.info_type
+    }
+    
+    pub fn file_system_id(&self) -> FileSystemId {
+        self.file_system_id
+    }
+    
+    pub fn handle(&self) -> &FileHandle<'a> {
+        &self.handle
+    }
 }

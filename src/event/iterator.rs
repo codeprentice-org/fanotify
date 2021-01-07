@@ -165,7 +165,7 @@ impl<'a> EventIterator<'a> {
                 }
                 File::FID(FileFID {
                     info_type,
-                    fsid: FileSystemId {
+                    file_system_id: FileSystemId {
                         fsid: fid.fsid,
                     },
                     handle: FileHandle {

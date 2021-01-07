@@ -167,6 +167,7 @@ mod tests {
     use crate::mark::Mark;
     use crate::mark::OneAction::Add;
     use crate::mark::What::MountPoint;
+    use crate::event::file::GetFD;
     
     const fn get_init() -> Init {
         Init {
@@ -242,7 +243,7 @@ mod tests {
             let events = fanotify.read(&mut buf)?;
             assert!(events
                 .fds()
-                .map(|it| it.file.fd.path().expect("/proc doesn't work"))
+                .map(|it| it.file().fd().path().expect("/proc doesn't work"))
                 .any(|it| it.parent().unwrap() == Path::new("/usr/bin"))
             );
             Ok(())
