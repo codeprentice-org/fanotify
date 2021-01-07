@@ -4,13 +4,15 @@ use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
 
 use nix::errno::Errno;
 
+use crate::mark::Mark;
+
 use super::{
-    init,
-    mark,
     common::FD,
     event::events::Events,
+    init,
     init::{Flags, Init, NotificationClass::Notify, RawInit},
-    mark::{Action::{Add, Remove}, Mark},
+    mark,
+    mark::{Action::{Add, Remove}},
     util::{ImpossibleSysCallError, libc_call, libc_void_call},
 };
 
@@ -101,7 +103,7 @@ impl Fanotify {
     /// The main method that adds a [`Mark`], only it returns just a [`mark::RawError`].
     /// The below [`mark`](Fanotify::mark) function wraps this into a full [`mark::Error`].
     fn mark_raw_error(&self, mark: &Mark) -> Result<(), mark::RawError> {
-        use mark::RawError::*;
+        use crate::mark::RawError::*;
         use Errno::*;
         let init = self.init.undo_raw();
         if mark.mask.includes_permission() && init.notification_class == Notify {
@@ -162,12 +164,12 @@ mod tests {
     
     use crate::{init, mark};
     use crate::descriptor::Fanotify;
+    use crate::event::file::GetFD;
     use crate::init::{Flags, Init};
     use crate::libc::read::fanotify_event_metadata;
     use crate::mark::Mark;
     use crate::mark::OneAction::Add;
     use crate::mark::What::MountPoint;
-    use crate::event::file::GetFD;
     
     const fn get_init() -> Init {
         Init {

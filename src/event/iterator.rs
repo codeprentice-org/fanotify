@@ -1,5 +1,10 @@
+use std::{
+    convert::TryInto,
+    mem::size_of,
+    os::unix::io::FromRawFd,
+};
+
 use nix::unistd::Pid;
-use std::os::unix::io::FromRawFd;
 
 use crate::{
     common::FD,
@@ -30,8 +35,6 @@ use super::{
     },
     id::{EventId, Id},
 };
-use std::convert::TryInto;
-use std::mem::size_of;
 
 /// A consuming [`Iterator`] over [`Events`].
 pub struct EventIterator<'a> {
