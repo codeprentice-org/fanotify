@@ -31,13 +31,13 @@ impl RawMark {
 }
 
 impl<'a> Mark<'a> {
-    pub const fn flags(&self) -> RawFlags {
+    pub const fn raw_flags(&self) -> RawFlags {
         self.action as u32 | self.what as u32 | self.flags.bits()
     }
     
     pub fn to_raw(&self) -> RawMark {
         RawMark {
-            flags: self.flags(),
+            flags: self.raw_flags(),
             mask: self.mask.bits(),
             dir_fd: self.path.dir.as_raw_fd(),
             path: self

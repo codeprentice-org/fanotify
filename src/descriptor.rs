@@ -115,7 +115,7 @@ impl Fanotify {
         libc_void_call(|| unsafe {
             libc::fanotify_mark(self.fd.as_raw_fd(), raw.flags, raw.mask, raw.dir_fd, raw.path_ptr())
         }).map_err(|errno| match errno {
-            EBADF => BadDirFd { fd: mark.path.dir.as_raw_fd() },
+            EBADF => BadDirFd { fd: raw.dir_fd },
             ENOTDIR => NotADirectory,
             ENOENT if mark.action == Add => PathDoesNotExist,
             ENODEV => PathDoesNotSupportFSID,

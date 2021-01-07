@@ -10,8 +10,8 @@ use super::DirFd;
 /// A path that is either absolute or relative to a directory file descriptor ([`DirFd`]).
 #[derive(Eq, PartialEq, Hash)]
 pub struct Path<'a> {
-    pub(crate) dir: DirFd<'a>,
-    pub(crate) path: Option<&'a std::path::Path>,
+    pub(super) dir: DirFd<'a>,
+    pub(super) path: Option<&'a std::path::Path>,
 }
 
 impl Path<'static> {
