@@ -35,14 +35,16 @@ impl fanotify_response {
 ///
 /// A [`ResponseBuffer`] can be explicitly written to a [`Fanotify`] instance
 /// using [`ResponseBuffer::write`] or [`ResponseBuffer::write_all`].
-#[derive(Default)]
-struct ResponseBuffer {
-    buffer: Vec<u8>,
+struct ResponseBuffer<'a> {
+    buffer: &'a mut Vec<u8>,
 }
 
-impl ResponseBuffer {
-    fn new() -> Self {
-        Self::default()
+impl<'a> ResponseBuffer<'a> {
+    fn new(buffer: &'a mut Vec<u8>) -> Self {
+        buffer.clear();
+        Self {
+            buffer,
+        }
     }
     
     pub fn is_empty(&self) -> bool {
@@ -99,15 +101,15 @@ impl ResponseBuffer {
 /// since errors can't be returned from [`Drop::drop`].
 pub struct Responses<'a> {
     fanotify: &'a Fanotify,
-    responses: RefCell<ResponseBuffer>,
+    responses: RefCell<ResponseBuffer<'a>>,
 }
 
 impl<'a> Responses<'a> {
     /// Create a [`Responses`] buffer writing to the given [`Fanotify`] instance.
-    pub(super) fn new(fanotify: &'a Fanotify) -> Self {
+    pub(super) fn new(fanotify: &'a Fanotify, buffer: &'a mut Vec<u8>) -> Self {
         Self {
             fanotify,
-            responses: RefCell::new(ResponseBuffer::new()),
+            responses: RefCell::new(ResponseBuffer::new(buffer)),
         }
     }
     

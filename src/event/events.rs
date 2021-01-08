@@ -22,6 +22,7 @@ use super::{
     id::Id,
     responses::Responses,
 };
+use crate::event::buffer::EventBuffer;
 
 /// A buffer of [`Event`]s from one [`Fanotify::read`] call.
 ///
@@ -58,8 +59,12 @@ impl<'a> Events<'a> {
     /// returns an [`Errno`], which wraps [`libc::read`].
     pub(in super::super) fn read(
         fanotify: &'a Fanotify,
-        buffer: &'a mut Vec<u8>,
+        buffer: &'a mut EventBuffer,
     ) -> std::result::Result<Self, Errno> {
+        let EventBuffer {
+            events: buffer,
+            responses: response_buffer,
+        } = buffer;
         buffer.clear();
         
         // want to use this, but it's unstable
@@ -83,7 +88,7 @@ impl<'a> Events<'a> {
             fanotify,
             id,
             buffer,
-            responses: Rc::new(Responses::new(fanotify)),
+            responses: Rc::new(Responses::new(fanotify, response_buffer)),
         };
         Ok(this)
     }

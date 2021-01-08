@@ -30,6 +30,7 @@ mod tests {
             What::MountPoint,
         },
     };
+    use crate::event::buffer::EventBufferSize;
     
     const fn get_init() -> Init {
         Init {
@@ -107,7 +108,7 @@ mod tests {
     fn init_mark_and_read() {
         with_fanotify(|fanotify| {
             fanotify.mark(get_mark())?;
-            let mut buf = Vec::with_capacity(4096);
+            let mut buf = EventBufferSize::default().new_buffer();
             let events = fanotify.read(&mut buf)?;
             for event in events.fds() {
                 event

@@ -5,3 +5,4 @@ pub mod event;
 pub mod events;
 pub mod iterator;
 pub mod error;
+pub mod buffer;

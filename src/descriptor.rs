@@ -8,7 +8,10 @@ use crate::mark::Mark;
 
 use super::{
     common::FD,
-    event::events::Events,
+    event::{
+        events::Events,
+        buffer::EventBuffer,
+    },
     init,
     init::{Flags, Init, NotificationClass::Notify, RawInit},
     mark,
@@ -151,7 +154,7 @@ impl Fanotify {
 impl Fanotify {
     /// Read file events from this [`Fanotify`] group into the given buffer.
     /// Return an [`Events`] iterator over the individual events.
-    pub fn read<'a>(&'a self, buffer: &'a mut Vec<u8>) -> Result<Events<'a>, Errno> {
+    pub fn read<'a>(&'a self, buffer: &'a mut EventBuffer) -> Result<Events<'a>, Errno> {
         Events::read(self, buffer)
     }
 }
