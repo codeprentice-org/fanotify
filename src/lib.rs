@@ -75,9 +75,10 @@ mod tests {
     }
     
     fn check_is_valid_first_path<P: AsRef<Path>>(path: P) {
-        assert_eq!(|| -> Option<&str> {
+        let dir = (|| -> Option<&str> {
             path.as_ref().parent()?.file_name()?.to_str()
-        }(), Some("bin"));
+        })().unwrap();
+        assert!(dir == "bin" || dir == "x86_64-linux-gnu");
     }
     
     #[test]
