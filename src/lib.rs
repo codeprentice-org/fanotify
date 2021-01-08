@@ -9,24 +9,26 @@ pub mod descriptor;
 #[cfg(test)]
 mod tests {
     use std::{
-        mem,
-        slice,
         error::Error,
+        mem,
         path::Path,
+        slice,
     };
     
+    use apply::Apply;
+    
     use crate::{
+        descriptor::Fanotify,
+        event::file::GetFD,
         init,
+        init::{Flags, Init},
+        libc::read::fanotify_event_metadata,
         mark::{
             self,
             Mark,
             OneAction::Add,
             What::MountPoint,
         },
-        descriptor::Fanotify,
-        event::file::GetFD,
-        init::{Flags, Init},
-        libc::read::fanotify_event_metadata,
     };
     
     const fn get_init() -> Init {
@@ -68,6 +70,12 @@ mod tests {
         });
     }
     
+    fn check_is_valid_first_path<P: AsRef<Path>>(path: P) {
+        assert_eq!(|| -> Option<&str> {
+            path.as_ref().parent()?.file_name()?.to_str()
+        }(), Some("bin"));
+    }
+    
     #[test]
     fn init_mark_and_raw_read() {
         with_fanotify(|fanotify| {
@@ -87,10 +95,10 @@ mod tests {
                     mem::size_of::<fanotify_event_metadata>() * buf.len(),
                 )
             })?;
-            let path = Path::new("/proc/self/fd")
+            Path::new("/proc/self/fd")
                 .join(buf[0].fd.to_string())
-                .read_link()?;
-            assert_eq!(path.parent().unwrap(), Path::new("/usr/bin"));
+                .read_link()?
+                .apply(check_is_valid_first_path);
             Ok(())
         });
     }
@@ -101,11 +109,13 @@ mod tests {
             fanotify.mark(get_mark())?;
             let mut buf = Vec::with_capacity(4096);
             let events = fanotify.read(&mut buf)?;
-            assert!(events
-                .fds()
-                .map(|it| it.file().fd().path().expect("/proc doesn't work"))
-                .any(|it| it.parent().unwrap() == Path::new("/usr/bin"))
-            );
+            for event in events.fds() {
+                event
+                    .file()
+                    .fd()
+                    .path()?
+                    .apply(check_is_valid_first_path);
+            }
             Ok(())
         });
     }
