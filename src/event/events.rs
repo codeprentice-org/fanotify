@@ -7,7 +7,7 @@ use std::{
 use nix::errno::Errno;
 
 use crate::{
-    descriptor::Fanotify,
+    fanotify::Fanotify,
     init,
 };
 

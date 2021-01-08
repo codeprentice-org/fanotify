@@ -7,7 +7,7 @@ use std::{
 use nix::errno::Errno;
 
 use super::super::{
-    descriptor::Fanotify,
+    fanotify::Fanotify,
     libc::write::fanotify_response,
 };
 

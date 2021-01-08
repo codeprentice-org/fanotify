@@ -4,7 +4,8 @@ mod util;
 pub mod init;
 pub mod mark;
 pub mod event;
-pub mod descriptor;
+pub mod fanotify;
+pub mod async_fanotify;
 
 #[cfg(test)]
 mod tests {
@@ -18,7 +19,7 @@ mod tests {
     use apply::Apply;
     
     use crate::{
-        descriptor::Fanotify,
+        fanotify::Fanotify,
         event::file::GetFD,
         init,
         init::{Flags, Init},
@@ -31,6 +32,8 @@ mod tests {
         },
     };
     use crate::event::buffer::EventBufferSize;
+    use async_io::block_on;
+    use crate::event::events::Events;
     
     const fn get_init() -> Init {
         Init {
@@ -104,20 +107,37 @@ mod tests {
         });
     }
     
+    fn check_events(events: Events<'_>) -> Result<(), Box<dyn Error>> {
+        for event in events.fds() {
+            event
+                .file()
+                .fd()
+                .path()?
+                .apply(check_is_valid_first_path);
+        }
+        Ok(())
+    }
+    
     #[test]
     fn init_mark_and_read() {
         with_fanotify(|fanotify| {
             fanotify.mark(get_mark())?;
             let mut buf = EventBufferSize::default().new_buffer();
             let events = fanotify.read(&mut buf)?;
-            for event in events.fds() {
-                event
-                    .file()
-                    .fd()
-                    .path()?
-                    .apply(check_is_valid_first_path);
-            }
+            check_events(events)?;
             Ok(())
         });
+    }
+    
+    #[test]
+    fn init_mark_and_read_async() {
+        with_fanotify(|fanotify| {
+            let fanotify = fanotify.into_async()?;
+            fanotify.mark(get_mark())?;
+            let mut buf = EventBufferSize::default().new_buffer();
+            let events = block_on(fanotify.read(&mut buf))?;
+            check_events(events)?;
+            Ok(())
+        })
     }
 }

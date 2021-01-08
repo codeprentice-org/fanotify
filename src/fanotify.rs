@@ -1,3 +1,4 @@
+use std::io;
 /// Contains main syscalls and the main [`Fanotify`] struct.
 
 use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
@@ -9,8 +10,8 @@ use crate::mark::Mark;
 use super::{
     common::FD,
     event::{
-        events::Events,
         buffer::EventBuffer,
+        events::Events,
     },
     init,
     init::{Flags, Init, NotificationClass::Notify, RawInit},
@@ -144,6 +145,7 @@ impl Fanotify {
     }
     
     /// Add a [`Mark`] to this [`Fanotify`] group.
+    ///
     /// See [`Mark`] for more details.
     pub fn mark<'a>(&self, mark: Mark<'a>) -> Result<(), mark::Error<'a>> {
         self.mark_raw_error(&mark)
@@ -153,13 +155,15 @@ impl Fanotify {
 
 impl Fanotify {
     /// Read file events from this [`Fanotify`] group into the given buffer.
+    ///
     /// Return an [`Events`] iterator over the individual events.
-    pub fn read<'a>(&'a self, buffer: &'a mut EventBuffer) -> Result<Events<'a>, Errno> {
-        Events::read(self, buffer)
+    ///
+    /// This method blocks.
+    pub fn read<'a>(&'a self, buffer: &'a mut EventBuffer) -> io::Result<Events<'a>> {
+        let events = Events::read(self, buffer)?;
+        Ok(events)
     }
 }
 
 #[cfg(test)]
-mod tests {
-
-}
+mod tests {}
