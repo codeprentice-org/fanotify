@@ -20,14 +20,19 @@ mod mask;
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
-    use std::path::Path;
+    use std::{
+        fs::File,
+        path::Path,
+    };
     
-    use crate::mark;
-    use crate::mark::{error, path};
-    use crate::mark::mark::Mark;
-    use crate::mark::OneAction::Add;
-    use crate::mark::What::{FileSystem, MountPoint};
+    use crate::mark::{
+        self,
+        error,
+        mark::Mark,
+        OneAction::Add,
+        path,
+        What::{FileSystem, MountPoint},
+    };
     
     #[test]
     fn mark_static_error() {

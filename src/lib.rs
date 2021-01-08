@@ -8,18 +8,26 @@ pub mod descriptor;
 
 #[cfg(test)]
 mod tests {
-    use std::{mem, slice};
-    use std::error::Error;
-    use std::path::Path;
+    use std::{
+        mem,
+        slice,
+        error::Error,
+        path::Path,
+    };
     
-    use crate::{init, mark};
-    use crate::descriptor::Fanotify;
-    use crate::event::file::GetFD;
-    use crate::init::{Flags, Init};
-    use crate::libc::read::fanotify_event_metadata;
-    use crate::mark::Mark;
-    use crate::mark::OneAction::Add;
-    use crate::mark::What::MountPoint;
+    use crate::{
+        init,
+        mark::{
+            self,
+            Mark,
+            OneAction::Add,
+            What::MountPoint,
+        },
+        descriptor::Fanotify,
+        event::file::GetFD,
+        init::{Flags, Init},
+        libc::read::fanotify_event_metadata,
+    };
     
     const fn get_init() -> Init {
         Init {
