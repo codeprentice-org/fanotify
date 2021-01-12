@@ -1,6 +1,5 @@
 use std::{
     mem::size_of,
-    rc::Rc,
     slice,
 };
 
@@ -10,12 +9,12 @@ use crate::{
     fanotify::Fanotify,
     init,
 };
+use crate::event::buffer::EventBuffer;
 
 use super::{
     id::Id,
-    responses::Responses,
+    responses::{RC, Responses},
 };
-use crate::event::buffer::EventBuffer;
 
 /// A buffer of [`Event`]s from one [`Fanotify::read`] call.
 ///
@@ -26,7 +25,7 @@ pub struct Events<'a> {
     fanotify: &'a Fanotify,
     id: Id,
     buffer: &'a mut Vec<u8>,
-    responses: Rc<Responses<'a>>,
+    responses: RC<Responses<'a>>,
 }
 
 impl<'a> Events<'a> {
@@ -38,7 +37,7 @@ impl<'a> Events<'a> {
         self.id
     }
     
-    pub(super) fn responses(&self) -> Rc<Responses<'a>> {
+    pub(super) fn responses(&self) -> RC<Responses<'a>> {
         self.responses.clone()
     }
     
@@ -83,9 +82,8 @@ impl<'a> Events<'a> {
             fanotify,
             id,
             buffer,
-            responses: Rc::new(Responses::new(fanotify, response_buffer)),
+            responses: RC::new(Responses::new(fanotify, response_buffer)),
         };
         Ok(this)
     }
 }
-

@@ -1,4 +1,3 @@
-use std::rc::Rc;
 use std::os::unix::io::AsRawFd;
 
 use nix::errno::Errno;
@@ -9,10 +8,12 @@ use crate::{
     libc::write::{FAN_ALLOW, FAN_AUDIT, FAN_DENY, fanotify_response},
 };
 
-use super::super::responses::Responses;
+use super::super::{
+    file::GetFD,
+    responses::{RC, Responses},
+};
 
 use self::PermissionDecision::{Allow, Deny};
-use crate::event::file::GetFD;
 
 /// A permission decision for a file event, either [`Allow`] or [`Deny`].
 /// Defaults to [`Allow`].
@@ -51,7 +52,7 @@ pub struct FilePermission<'a> {
     pub decision: PermissionDecision,
     pub audit: bool,
     written: bool,
-    responses: Rc<Responses<'a>>,
+    responses: RC<Responses<'a>>,
 }
 
 impl GetFD for FilePermission<'_> {
@@ -61,7 +62,7 @@ impl GetFD for FilePermission<'_> {
 }
 
 impl<'a> FilePermission<'a> {
-    pub(in super::super) fn new(fd: FD, responses: Rc<Responses<'a>>) -> Self {
+    pub(in super::super) fn new(fd: FD, responses: RC<Responses<'a>>) -> Self {
         Self {
             fd,
             decision: PermissionDecision::default(),

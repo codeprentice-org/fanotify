@@ -1,6 +1,7 @@
 use std::{
     cell::RefCell,
     mem::size_of,
+    rc::Rc,
     slice,
 };
 
@@ -166,3 +167,7 @@ impl Drop for Responses<'_> {
         );
     }
 }
+
+/// Parameterized reference counter here just to simplify things a bit.
+/// [`Arc`](std::sync::Arc) doesn't work for now.
+pub type RC<T> = Rc<T>;
