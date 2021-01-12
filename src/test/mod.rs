@@ -1,4 +1,4 @@
-use std::{error::Error, mem, path::Path, slice, fs};
+use std::{error::Error, fs, mem, path::Path, slice};
 
 use apply::Apply;
 use async_io::block_on;
@@ -140,11 +140,10 @@ fn many() {
             action: Add,
             what: MountPoint,
             flags: mark::Flags::empty(),
-            mask: {
-                let mut mask = mark::Mask::all();
-                mask.remove(mark::Mask::all_permissions());
-                mask
-            },
+            mask: mark::Mask::ACCESS
+                | mark::Mask::OPEN
+                | mark::Mask::close()
+                | mark::Mask::MODIFY,
             path: mark::Path::absolute("/home"),
         }).unwrap())?;
         let mut driver = Driver {
