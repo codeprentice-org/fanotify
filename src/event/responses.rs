@@ -29,8 +29,6 @@ impl fanotify_response {
     }
 }
 
-// TODO figure out a way to reuse this buffer b/w Events reads
-
 /// A buffer of responses to fanotify [`Event`](super::event::Event)s.
 ///
 /// A [`ResponseBuffer`] can be explicitly written to a [`Fanotify`] instance

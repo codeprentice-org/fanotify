@@ -5,6 +5,12 @@
 ///
 /// By storing these in a separate buffer,
 /// I can reuse the buffer memory for each [`Fanotify::read`].
+///
+/// [`Fanotify`]: crate::fanotify::Fanotify
+/// [`Events`]: super::events::Events
+/// [`Fanotify::read`]: crate::fanotify::Fanotify::read
+/// [`Events::read`]: super::events::Events::read
+/// [`Event`]: super::event::Event
 pub struct EventBuffer {
     pub events: Vec<u8>,
     pub responses: Vec<u8>,

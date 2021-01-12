@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 
 use crate::{
-    common::FD,
+    fd::FD,
     libc::read::{
         FAN_EVENT_INFO_TYPE_DFID,
         FAN_EVENT_INFO_TYPE_DFID_NAME,

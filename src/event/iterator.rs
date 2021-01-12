@@ -7,7 +7,7 @@ use std::{
 use nix::unistd::Pid;
 
 use crate::{
-    common::FD,
+    fd::FD,
     init,
     libc::{
         mark::mask::FAN_Q_OVERFLOW,
@@ -23,8 +23,7 @@ use crate::{
 };
 
 use super::{
-    error,
-    error::{EventError, TooShortError},
+    error::{EventError, EventResult, TooShortError},
     event::Event,
     events::Events,
     file::{
@@ -34,6 +33,7 @@ use super::{
         permission::FilePermission,
     },
     id::{EventId, Id},
+    iterator_ext::IntoEvents,
 };
 
 /// A consuming [`Iterator`] over [`Events`].
@@ -48,9 +48,9 @@ impl<'a> EventIterator<'a> {
     ///
     /// This is only called from [`next`](EventIterator::next) so it's safe.
     /// It's just used to avoid nesting the [`Option`] and [`Result`].
-    fn next_unchecked(&mut self) -> error::EventResult<'a> {
-        use super::error::EventError::*;
-        use super::error::TooShortError::*;
+    fn next_unchecked(&mut self) -> EventResult<'a> {
+        use EventError::*;
+        use TooShortError::*;
         
         let remaining = &self.events.as_bytes()[self.read_index..];
         
@@ -192,7 +192,7 @@ impl<'a> EventIterator<'a> {
 }
 
 impl<'a> Iterator for EventIterator<'a> {
-    type Item = error::EventResult<'a>;
+    type Item = EventResult<'a>;
     
     fn next(&mut self) -> Option<Self::Item> {
         if self.events.as_bytes().len() <= self.read_index {
@@ -204,10 +204,12 @@ impl<'a> Iterator for EventIterator<'a> {
 }
 
 impl<'a> IntoIterator for Events<'a> {
-    type Item = error::EventResult<'a>;
+    type Item = EventResult<'a>;
     type IntoIter = EventIterator<'a>;
     
     fn into_iter(self) -> Self::IntoIter {
         EventIterator { events: self, read_index: 0 }
     }
 }
+
+impl<'a> IntoEvents<'a> for Events<'a> {}

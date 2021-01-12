@@ -5,7 +5,7 @@ use nix::errno::Errno;
 use to_trait::To;
 
 use crate::{
-    common::FD,
+    fd::FD,
     libc::write::{FAN_ALLOW, FAN_AUDIT, FAN_DENY, fanotify_response},
 };
 
@@ -45,7 +45,7 @@ impl From<PermissionDecision> for u32 {
 /// Set [`Self::decision`] for the permission decision (it defaults to [`Allow`]).
 /// [`Self::audit`] can also be set to tell the kernel to audit this permission decision.
 /// The decision is written once all [`FilePermission`]s
-/// from this [`Fanotify::read`](crate::descriptor::Fanotify::read) call are dropped.
+/// from this [`Fanotify::read`](crate::fanotify::Fanotify::read) call are dropped.
 pub struct FilePermission<'a> {
     fd: FD,
     pub decision: PermissionDecision,
@@ -92,7 +92,7 @@ impl<'a> FilePermission<'a> {
         }
     }
     
-    /// Write the response immediately to the [`Fanotify`](crate::descriptor::Fanotify).
+    /// Write the response immediately to the [`Fanotify`](crate::fanotify::Fanotify).
     ///
     /// Return if the response is written (it can only be written successfully once).
     pub fn write_immediately(&mut self) -> std::result::Result<bool, Errno> {

@@ -14,6 +14,7 @@ use super::{
     },
 };
 
+/// An async version of [`Fanotify`].
 pub struct AsyncFanotify {
     inner: Async<Fanotify>,
 }
@@ -64,6 +65,16 @@ impl AsyncFanotify {
     /// Return an [`Events`] iterator over the individual events.
     ///
     /// This method does not block.
+    ///
+    /// However, while reads are handled asynchronously,
+    /// writes (permission responses) are not.
+    /// This is because there is no `AsyncDrop`, so I cannot flush writes in [`Drop::drop`].
+    /// However, the fanotify file descriptor
+    /// is still placed in non-blocking mode by [`AsyncFanotify::new`],
+    /// meaning the writes must happen without blocking,
+    /// or else [`Errno::EAGAIN`](nix::errno::Errno::EAGAIN) will be thrown.
+    /// This likely won't happen though,
+    /// since writing permission responses to a fanotify file descriptor shouldn't normally block.
     pub async fn read<'a>(&'a self, buffer: &'a mut EventBuffer) -> io::Result<Events<'a>> {
         self.inner.readable().await?;
         let events = self.fanotify().read(buffer)?;

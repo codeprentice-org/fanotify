@@ -1,23 +1,29 @@
-use std::io;
-/// Contains main syscalls and the main [`Fanotify`] struct.
-
-use std::os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd};
+use std::{
+    io,
+    os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
+};
 
 use nix::errno::Errno;
 
-use crate::mark::Mark;
-
 use super::{
-    common::FD,
     event::{
         buffer::EventBuffer,
         events::Events,
     },
-    init,
-    init::{Flags, Init, NotificationClass::Notify, RawInit},
-    mark,
-    mark::{Action::{Add, Remove}},
-    util::{ImpossibleSysCallError, libc_call, libc_void_call},
+    fd::FD,
+    init::{
+        self,
+        Flags,
+        Init,
+        NotificationClass::Notify,
+        RawInit,
+    },
+    libc_call::{ImpossibleSysCallError, libc_call, libc_void_call},
+    mark::{
+        self,
+        Action::{Add, Remove},
+        Mark,
+    },
 };
 
 /// The main [`Fanotify`] struct, the primary entry point to the fanotify API.

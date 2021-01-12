@@ -1,6 +1,6 @@
-pub mod common;
+pub mod fd;
 pub mod libc;
-mod util;
+mod libc_call;
 pub mod init;
 pub mod mark;
 pub mod event;
@@ -17,10 +17,16 @@ mod tests {
     };
     
     use apply::Apply;
+    use async_io::block_on;
     
     use crate::{
+        event::{
+            file::GetFD,
+            buffer::EventBufferSize,
+            events::Events,
+            iterator_ext::IntoEvents,
+        },
         fanotify::Fanotify,
-        event::file::GetFD,
         init,
         init::{Flags, Init},
         libc::read::fanotify_event_metadata,
@@ -31,9 +37,6 @@ mod tests {
             What::MountPoint,
         },
     };
-    use crate::event::buffer::EventBufferSize;
-    use async_io::block_on;
-    use crate::event::events::Events;
     
     const fn get_init() -> Init {
         Init {

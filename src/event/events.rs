@@ -12,13 +12,6 @@ use crate::{
 };
 
 use super::{
-    error,
-    event::{Event, EventOf},
-    file::{
-        fd::FileFD,
-        fid::FileFID,
-        permission::FilePermission,
-    },
     id::Id,
     responses::Responses,
 };
@@ -27,6 +20,8 @@ use crate::event::buffer::EventBuffer;
 /// A buffer of [`Event`]s from one [`Fanotify::read`] call.
 ///
 /// The individual [`Event`]s can only be iterated over because they are variable-length.
+///
+/// [`Event`]: super::event::Event
 pub struct Events<'a> {
     fanotify: &'a Fanotify,
     id: Id,
@@ -55,7 +50,7 @@ impl<'a> Events<'a> {
 impl<'a> Events<'a> {
     /// Construct an [`Events`] by reading from a [`Fanotify`] into a given buffer.
     ///
-    /// Returns an error only if the [`FD::read`](crate::common::FD::read) call
+    /// Returns an error only if the [`FD::read`](crate::fd::FD::read) call
     /// returns an [`Errno`], which wraps [`libc::read`].
     pub(in super::super) fn read(
         fanotify: &'a Fanotify,
@@ -94,29 +89,3 @@ impl<'a> Events<'a> {
     }
 }
 
-impl<'a> Events<'a> {
-    /// An [`Iterator`] over all [`Result`]s, so including errors and [`Event`]s.
-    pub fn all(self) -> impl Iterator<Item=error::EventResult<'a>> {
-        self.into_iter()
-    }
-    
-    /// An [`Iterator`] over all non-error [`Event`]s.
-    pub fn ok(self) -> impl Iterator<Item=Event<'a>> {
-        self.all().filter_map(|it| it.ok())
-    }
-    
-    /// An [`Iterator`] over all [`Event`]s containing a [`FileFD`].
-    pub fn fds(self) -> impl Iterator<Item=EventOf<FileFD>> + 'a {
-        self.ok().filter_map(|it| it.fd())
-    }
-    
-    /// An [`Iterator`] over all [`Event`]s containing a [`FileFID`].
-    pub fn fids(self) -> impl Iterator<Item=EventOf<FileFID<'a>>> {
-        self.ok().filter_map(|it| it.fid())
-    }
-    
-    /// An [`Iterator`] over all [`Event`]s containing a [`FilePermission`].
-    pub fn permissions(self) -> impl Iterator<Item=EventOf<FilePermission<'a>>> {
-        self.ok().filter_map(|it| it.permission())
-    }
-}

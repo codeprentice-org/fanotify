@@ -1,4 +1,4 @@
-use crate::common::FD;
+use crate::fd::FD;
 use crate::event::file::GetFD;
 
 /// A regular file event just containing an [`FD`],
