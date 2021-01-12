@@ -150,13 +150,16 @@ fn many() {
             fanotify,
             buffer: EventBufferSize::default().new_buffer(),
         };
+        let path = std::env::var_os("HISTFILE").unwrap();
+        let path = path.as_os_str().apply(Path::new);
         {
-            fs::read_to_string("/home/.bash_history")?;
+            
+            fs::read_to_string(path)?;
             driver.read_n(1)?;
         }
         let mut driver = driver.into_async()?;
         {
-            fs::read_to_string("/home/.bash_history")?;
+            fs::read_to_string(path)?;
             block_on(driver.read_n(1))?;
         }
         Ok(())
