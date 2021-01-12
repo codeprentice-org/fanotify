@@ -25,6 +25,7 @@ use super::{
         Mark,
     },
 };
+use std::convert::TryFrom;
 
 /// The main [`Fanotify`] struct, the primary entry point to the fanotify API.
 #[derive(Debug)]
@@ -102,10 +103,26 @@ impl RawInit {
     }
 }
 
+impl TryFrom<RawInit> for Fanotify {
+    type Error = init::Error;
+    
+    fn try_from(this: RawInit) -> Result<Self, Self::Error> {
+        this.run()
+    }
+}
+
 impl Init {
     /// Create a [`Fanotify`] using the flags in this [`Init`].
     pub fn run(&self) -> Result<Fanotify, init::Error> {
         self.as_raw().run()
+    }
+}
+
+impl TryFrom<Init> for Fanotify {
+    type Error = init::Error;
+    
+    fn try_from(this: Init) -> Result<Self, Self::Error> {
+        this.run()
     }
 }
 
