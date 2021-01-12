@@ -23,6 +23,7 @@ use crate::{
         What::MountPoint,
     },
 };
+use std::path::PathBuf;
 
 mod driver;
 
@@ -150,8 +151,9 @@ fn many() {
             fanotify,
             buffer: EventBufferSize::default().new_buffer(),
         };
-        let path = std::env::var_os("HISTFILE").unwrap();
-        let path = path.as_os_str().apply(Path::new);
+        let path = std::env::var_os("HOME").unwrap();
+        let path = PathBuf::new().join(path).join(".bash_history");
+        let path = path.as_path();
         {
             
             fs::read_to_string(path)?;
