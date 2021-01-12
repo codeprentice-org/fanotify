@@ -140,7 +140,7 @@ fn many() {
             action: Add,
             what: MountPoint,
             flags: mark::Flags::empty(),
-            mask: mark::Mask::all(),
+            mask: mark::Mask::all().remove(mark::Mask::all_permissions()),
             path: mark::Path::absolute("/home"),
         }).unwrap())?;
         let mut driver = Driver {
