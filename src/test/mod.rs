@@ -155,9 +155,9 @@ fn many() {
         let path = PathBuf::new().join(path).join(".bash_history");
         let path = path.as_path();
         {
-            
             fs::read_to_string(path)?;
-            driver.read_n(1)?;
+            let events = driver.read()?.collect::<Vec<_>>();
+            println!("{:?}", events);
         }
         let mut driver = driver.into_async()?;
         {

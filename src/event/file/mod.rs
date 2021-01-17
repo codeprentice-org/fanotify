@@ -12,6 +12,7 @@ pub trait GetFD {
 }
 
 /// An enum of the different kinds of file events.
+#[derive(Debug)]
 pub enum File<'a> {
     FD(FileFD),
     FID(FileFID<'a>),

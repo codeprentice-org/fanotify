@@ -10,6 +10,7 @@ use super::{
     id::EventId,
 };
 
+#[derive(Debug)]
 pub struct EventOf<FileT> {
     pub(super) mask: mark::Mask,
     pub(super) id: EventId,

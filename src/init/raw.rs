@@ -50,12 +50,13 @@ impl RawInit {
         const_assert_eq!(PreContent as u32, 2 << 2);
         const_assert_eq!(Content as u32, 1 << 2);
         const_assert_eq!(Notify as u32, 0 << 2);
-        
+    
+        // unsafe
         [
             Notify,
             Content,
             PreContent,
-            Notify, // unsafe
+            Notify,
         ][((self.flags & 0b1111) >> 2) as usize]
     }
     
@@ -68,11 +69,12 @@ impl RawInit {
         const_assert_eq!(Read as u32, 0);
         const_assert_eq!(Write as u32, 1);
         const_assert_eq!(ReadAndWrite as u32, 2);
+        // unsafe
         [
             Read,
             Write,
             ReadAndWrite,
-            Read, // unsafe
+            Read,
         ][(self.event_flags & 0b11) as usize]
     }
     

@@ -1,4 +1,11 @@
-use std::convert::TryFrom;
+use std::{
+    convert::TryFrom,
+    fmt::{
+        self,
+        Debug,
+        Formatter,
+    },
+};
 
 use crate::{
     fd::FD,
@@ -11,13 +18,13 @@ use crate::{
 };
 
 /// A filesystem id.  It uniquely represents any filesystem object.
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct FileSystemId {
     pub(in super::super) fsid: libc::fsid_t,
 }
 
 /// TODO there can be multiple of these per event, so need to handle that
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[repr(u8)]
 pub enum InfoType {
     Fid = FAN_EVENT_INFO_TYPE_FID,
@@ -61,6 +68,12 @@ pub struct FileHandle<'a> {
     pub(in super::super) handle: &'a fanotify_event_file_handle,
 }
 
+impl Debug for FileHandle<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "FileHandle {{ handle: {:p} }}", self.handle)
+    }
+}
+
 impl FileHandle<'_> {
     /// Open the resolved file handle.
     /// Not implemented yet.
@@ -72,6 +85,7 @@ impl FileHandle<'_> {
 /// A [`REPORT_FID`](crate::init::Flags::REPORT_FID) file event.
 /// Unlike a normal [`FileFD`](super::fd::FileFD) event, which contains an opened [`FD`],
 /// it contains a [`FileSystemId`] and an unopened but resolved [`FileHandle`].
+#[derive(Debug)]
 pub struct FileFID<'a> {
     pub(in super::super) info_type: InfoType,
     pub(in super::super) file_system_id: FileSystemId,

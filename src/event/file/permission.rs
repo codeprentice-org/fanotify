@@ -1,6 +1,16 @@
-use std::os::unix::io::AsRawFd;
+use std::{
+    convert::{
+        TryFrom,
+        TryInto,
+    },
+    os::unix::io::{
+        AsRawFd,
+        RawFd,
+    },
+};
 
 use nix::errno::Errno;
+use static_assertions::const_assert_eq;
 use to_trait::To;
 
 use crate::{
@@ -14,10 +24,11 @@ use super::super::{
 };
 
 use self::PermissionDecision::{Allow, Deny};
+use apply::Apply;
 
 /// A permission decision for a file event, either [`Allow`] or [`Deny`].
 /// Defaults to [`Allow`].
-#[derive(Eq, PartialEq, Copy, Clone)]
+#[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub enum PermissionDecision {
     Allow,
     Deny,
@@ -40,6 +51,54 @@ impl From<PermissionDecision> for u32 {
     }
 }
 
+impl TryFrom<u32> for PermissionDecision {
+    type Error = ();
+    
+    fn try_from(this: u32) -> Result<Self, Self::Error> {
+        const_assert_eq!(FAN_ALLOW, 1);
+        const_assert_eq!(FAN_DENY, 2);
+        // unsafe
+        [
+            Err(()),
+            Ok(Allow),
+            Ok(Deny),
+            Err(()),
+        ][(this & 0b11) as usize]
+    }
+}
+
+#[derive(Debug)]
+pub(in super::super) struct RawFilePermission {
+    pub fd: RawFd,
+    pub decision: PermissionDecision,
+    pub audit: bool,
+}
+
+impl From<&RawFilePermission> for fanotify_response {
+    /// The (more) raw [`fanotify_response`] representation of this [`RawFilePermission`].
+    fn from(this: &RawFilePermission) -> Self {
+        let audit = this.audit as u32 * FAN_AUDIT;
+        Self {
+            fd: this.fd,
+            response: this.decision.to::<u32>() | audit,
+        }
+    }
+}
+
+impl TryFrom<&fanotify_response> for RawFilePermission {
+    type Error = ();
+    
+    fn try_from(this: &fanotify_response) -> Result<Self, Self::Error> {
+        // just ignore the other bits
+        let audit = this.response & FAN_AUDIT != 0;
+        Self {
+            fd: this.fd,
+            decision: this.response.try_into()?,
+            audit,
+        }.apply(Ok)
+    }
+}
+
 /// Like a [`FileFD`](super::fd::FileFD) event, except it is a permission event
 /// and thus you must make a permission decision.
 ///
@@ -47,6 +106,7 @@ impl From<PermissionDecision> for u32 {
 /// [`Self::audit`] can also be set to tell the kernel to audit this permission decision.
 /// The decision is written once all [`FilePermission`]s
 /// from this [`Fanotify::read`](crate::fanotify::Fanotify::read) call are dropped.
+#[derive(Debug)]
 pub struct FilePermission<'a> {
     fd: FD,
     pub decision: PermissionDecision,
@@ -84,12 +144,12 @@ impl<'a> FilePermission<'a> {
         self.written
     }
     
-    /// The raw [`fanotify_response`] representation of this [`FilePermission`].
-    fn response(&self) -> fanotify_response {
-        let audit = self.audit as u32 * FAN_AUDIT;
-        fanotify_response {
+    /// The raw [`RawFilePermission`] of this [`FilePermission`].
+    fn response(&self) -> RawFilePermission {
+        RawFilePermission {
             fd: self.fd.as_raw_fd(),
-            response: self.decision.to::<u32>() | audit,
+            decision: self.decision,
+            audit: self.audit,
         }
     }
     

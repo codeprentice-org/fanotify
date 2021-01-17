@@ -1,5 +1,10 @@
 use std::{
     cell::RefCell,
+    fmt::{
+        self,
+        Debug,
+        Formatter,
+    },
     mem::size_of,
     rc::Rc,
     slice,
@@ -7,10 +12,14 @@ use std::{
 
 use nix::errno::Errno;
 
-use super::super::{
-    fanotify::Fanotify,
-    libc::write::fanotify_response,
+use super::{
+    file::permission::RawFilePermission,
+    super::{
+        fanotify::Fanotify,
+        libc::write::fanotify_response,
+    },
 };
+use to_trait::To;
 
 impl fanotify_response {
     /// Reinterpret as a byte slice for [`writing`](libc::write) to a [`Fanotify`] instance.
@@ -83,6 +92,39 @@ impl<'a> ResponseBuffer<'a> {
         }
         Ok(())
     }
+    
+    pub fn responses(&self) -> &[fanotify_response] {
+        // the buffer could slice a fanotify_response in half when writing
+        // but from the back it should be all contiguous
+        // so we just skip the offset at the beginning and cast to &[fanotify_response]
+        let offset = self.buffer.len() % size_of::<fanotify_response>();
+        let len = self.buffer.len() / size_of::<fanotify_response>();
+        unsafe {
+            let ptr = self.buffer.as_ptr().add(offset) as *const fanotify_response;
+            slice::from_raw_parts(ptr, len)
+        }
+    }
+}
+
+impl Debug for ResponseBuffer<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "[")?;
+        for (i, response) in self.responses().iter().enumerate() {
+            if i != 0 {
+                write!(f, ", ")?;
+            }
+            match response.try_to::<RawFilePermission>() {
+                Ok(response) => {
+                    write!(f, "{:?}", response)?;
+                }
+                Err(()) => {
+                    write!(f, "Err")?;
+                }
+            };
+        }
+        write!(f, "]")?;
+        Ok(())
+    }
 }
 
 /// A buffer of responses to fanotify [`Event`](super::event::Event)s.
@@ -98,6 +140,7 @@ impl<'a> ResponseBuffer<'a> {
 /// or implicitly on [`Responses::drop`].
 /// Errors can only be handled when flushing it explicitly, however,
 /// since errors can't be returned from [`Drop::drop`].
+#[derive(Debug)]
 pub struct Responses<'a> {
     fanotify: &'a Fanotify,
     responses: RefCell<ResponseBuffer<'a>>,
@@ -121,8 +164,8 @@ impl<'a> Responses<'a> {
     }
     
     /// [`Write`](libc::write) a raw [`fanotify_response`] immediately to the [`Fanotify`] instance.
-    pub(super) fn write_immediately(&self, response: &fanotify_response) -> Result<(), Errno> {
-        let bytes_written = self.fanotify.fd.write(response.as_bytes())?;
+    pub(super) fn write_immediately(&self, response: &RawFilePermission) -> Result<(), Errno> {
+        let bytes_written = self.fanotify.fd.write(response.to::<fanotify_response>().as_bytes())?;
         // a write this small should definitely succeed, so only try once
         match bytes_written {
             0 => Ok(()),
@@ -131,8 +174,8 @@ impl<'a> Responses<'a> {
     }
     
     /// Write a raw [`fanotify_response`] to the buffer.
-    pub(super) fn write_buffered(&self, response: &fanotify_response) {
-        self.responses.borrow_mut().add(response);
+    pub(super) fn write_buffered(&self, response: &RawFilePermission) {
+        self.responses.borrow_mut().add(&response.into());
     }
     
     /// Attempt to [`write`](libc::write) the buffer to the [`Fanotify`] instance.
