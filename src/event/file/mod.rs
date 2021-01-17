@@ -1,3 +1,8 @@
+use std::io;
+use std::path::PathBuf;
+
+use apply::Apply;
+
 use crate::event::file::fd::FileFD;
 use crate::event::file::fid::FileFID;
 use crate::event::file::permission::FilePermission;
@@ -42,5 +47,16 @@ impl<'a> File<'a> {
             Self::Permission(file) => Some(file),
             _ => None,
         }
+    }
+    
+    /// Try to resolve the path of this file event, if it contains a way to resolve it.
+    pub fn path(&self) -> Option<io::Result<PathBuf>> {
+        match self {
+            Self::FD(file) => file.fd(),
+            Self::Permission(file) => file.fd(),
+            _ => return None,
+        }
+            .path()
+            .apply(Some)
     }
 }

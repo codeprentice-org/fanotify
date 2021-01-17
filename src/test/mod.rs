@@ -1,7 +1,9 @@
 use std::{error::Error, fs, mem, path::Path, slice};
+use std::path::PathBuf;
 
 use apply::Apply;
 use async_io::block_on;
+use to_trait::To;
 
 use driver::Driver;
 
@@ -19,14 +21,12 @@ use crate::{
     mark::{
         self,
         Mark,
+        Markable,
         OneAction::Add,
         What::MountPoint,
-        Markable,
     },
 };
-use std::path::PathBuf;
 use crate::buffered_fanotify::IntoBufferedFanotify;
-use to_trait::To;
 
 mod driver;
 
@@ -165,5 +165,34 @@ fn many() {
             block_on(driver.read_n(1))?;
         }
         Ok(())
+    })
+}
+
+#[test]
+fn forever() {
+    with_fanotify(|fanotify| {
+        fanotify.mark(Mark::one(mark::One {
+            action: Add,
+            what: MountPoint,
+            flags: mark::Flags::empty(),
+            mask: mark::Mask::ACCESS
+                | mark::Mask::OPEN
+                | mark::Mask::close()
+                | mark::Mask::MODIFY,
+            path: mark::Path::absolute("/home"),
+        }).unwrap())?;
+        let mut fanotify = fanotify.buffered_default();
+        loop {
+            for event in fanotify.read()?.all() {
+                println!("{:?}", event);
+                event
+                    .ok()
+                    .and_then(|it| it.into_file().path())
+                    .and_then(|it| it.ok())
+                    .map(|path| {
+                        println!("{}", path.display());
+                    });
+            }
+        }
     })
 }
