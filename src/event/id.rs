@@ -1,7 +1,22 @@
-use nix::unistd::{Pid, getpid, gettid};
+use std::{
+    fmt::{
+        self,
+        Debug,
+        Formatter,
+    },
+};
+
+use libc::pid_t;
+use nix::unistd::{getpid, gettid, Pid};
+
+#[derive(Debug)]
+enum RawId {
+    Pid(pid_t),
+    Tid(pid_t),
+}
 
 /// A thread or process id.
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Id {
     Pid(Pid),
     Tid(Pid),
@@ -33,6 +48,19 @@ impl Id {
         } else {
             Self::Pid(getpid())
         }
+    }
+    
+    fn as_raw(&self) -> RawId {
+        match self {
+            Self::Pid(id) => RawId::Pid(id.as_raw()),
+            Self::Tid(id) => RawId::Tid(id.as_raw()),
+        }
+    }
+}
+
+impl Debug for Id {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self.as_raw())
     }
 }
 
