@@ -67,3 +67,9 @@ impl From<EventBufferSize> for EventBuffer {
         size.new_buffer()
     }
 }
+
+impl Default for EventBuffer {
+    fn default() -> Self {
+        EventBufferSize::default().into()
+    }
+}

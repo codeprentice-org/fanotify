@@ -21,9 +21,12 @@ use crate::{
         Mark,
         OneAction::Add,
         What::MountPoint,
+        Markable,
     },
 };
 use std::path::PathBuf;
+use crate::buffered_fanotify::IntoBufferedFanotify;
+use to_trait::To;
 
 mod driver;
 
@@ -35,7 +38,7 @@ const fn get_init() -> Init {
 }
 
 fn with_fanotify<F: FnOnce(Fanotify) -> Result<(), Box<dyn Error>>>(f: F) {
-    match get_init().run() {
+    match get_init().to_fanotify() {
         Ok(fanotify) => f(fanotify).unwrap(),
         Err(e) => {
             assert_eq!(e, init::Error::FanotifyUnsupported);
@@ -147,10 +150,7 @@ fn many() {
                 | mark::Mask::MODIFY,
             path: mark::Path::absolute("/home"),
         }).unwrap())?;
-        let mut driver = Driver {
-            fanotify,
-            buffer: EventBufferSize::default().new_buffer(),
-        };
+        let mut driver = fanotify.buffered_default().to::<Driver>();
         let path = std::env::var_os("HOME").unwrap();
         let path = PathBuf::new().join(path).join(".bash_history");
         let path = path.as_path();

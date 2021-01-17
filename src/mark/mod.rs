@@ -7,6 +7,7 @@ pub use mask::Mask;
 pub use path::Path;
 pub use raw::{RawFlags, RawMark};
 pub use what::What;
+pub use markable::Markable;
 
 mod dir_fd;
 mod path;
@@ -17,6 +18,7 @@ mod action;
 mod what;
 mod flags;
 mod mask;
+mod markable;
 
 #[cfg(test)]
 mod tests {

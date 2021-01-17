@@ -2,6 +2,8 @@ use std::io;
 
 use async_io::Async;
 
+use crate::mark::Markable;
+
 use super::{
     event::{
         buffer::EventBuffer,
@@ -52,14 +54,13 @@ impl AsyncFanotify {
     }
 }
 
-impl AsyncFanotify {
-    /// Add a [`Mark`] to the wrapped [`Fanotify`] group.
-    ///
-    /// See [`Mark`] for more details.
-    pub fn mark<'a>(&self, mark: Mark<'a>) -> Result<(), mark::Error<'a>> {
+impl Markable for AsyncFanotify {
+    fn mark<'a>(&self, mark: Mark<'a>) -> Result<(), mark::Error<'a>> {
         self.fanotify().mark(mark)
     }
-    
+}
+
+impl AsyncFanotify {
     /// Read file events from the wrapped [`Fanotify`] group into the given buffer.
     ///
     /// Return an [`Events`] iterator over the individual events.

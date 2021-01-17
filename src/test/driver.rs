@@ -2,22 +2,29 @@ use std::io;
 
 use apply::Apply;
 
-use crate::async_fanotify::AsyncFanotify;
-use crate::event::buffer::EventBuffer;
-use crate::event::event::Event;
-use crate::event::iterator_ext::IntoEvents;
-use crate::fanotify::Fanotify;
+use crate::{
+    buffered_fanotify::{AsyncBufferedFanotify, BufferedFanotify},
+    event::{
+        event::Event,
+        iterator_ext::IntoEvents,
+    },
+};
 
 pub struct Driver {
-    pub fanotify: Fanotify,
-    pub buffer: EventBuffer,
+    pub fanotify: BufferedFanotify,
+}
+
+impl From<BufferedFanotify> for Driver {
+    fn from(this: BufferedFanotify) -> Self {
+        Self { fanotify: this }
+    }
 }
 
 impl Driver {
     pub fn read(&mut self) -> io::Result<impl Iterator<Item=Event>> {
         self
             .fanotify
-            .read(&mut self.buffer)?
+            .read()?
             .all()
             .map(|it| it.expect("event error"))
             .filter(|it| it.id().is_generated_by_self())
@@ -29,18 +36,16 @@ impl Driver {
         assert_eq!(events.len(), n);
         Ok(events)
     }
-    
-    pub fn into_async(self) -> io::Result<AsyncDriver> {
-        AsyncDriver {
-            fanotify: self.fanotify.into_async()?,
-            buffer: self.buffer,
-        }.apply(Ok)
-    }
 }
 
 pub struct AsyncDriver {
-    fanotify: AsyncFanotify,
-    buffer: EventBuffer,
+    pub fanotify: AsyncBufferedFanotify,
+}
+
+impl From<AsyncBufferedFanotify> for AsyncDriver {
+    fn from(this: AsyncBufferedFanotify) -> Self {
+        Self { fanotify: this }
+    }
 }
 
 impl AsyncDriver {
@@ -49,7 +54,7 @@ impl AsyncDriver {
     pub async fn read<'a>(&'a mut self) -> io::Result<impl Iterator<Item=Event<'a>>> {
         self
             .fanotify
-            .read(&mut self.buffer)
+            .read()
             .await?
             .all()
             .map(|it| it.expect("event error"))
@@ -62,5 +67,13 @@ impl AsyncDriver {
         let events = self.read().await?.collect::<Vec<_>>();
         assert_eq!(events.len(), n);
         Ok(events)
+    }
+}
+
+impl Driver {
+    pub fn into_async(self) -> io::Result<AsyncDriver> {
+        AsyncDriver {
+            fanotify: self.fanotify.into_async()?
+        }.apply(Ok)
     }
 }

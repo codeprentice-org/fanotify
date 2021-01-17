@@ -1,4 +1,5 @@
 use std::{
+    convert::TryFrom,
     io,
     os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
 };
@@ -23,9 +24,9 @@ use super::{
         self,
         Action::{Add, Remove},
         Mark,
+        Markable,
     },
 };
-use std::convert::TryFrom;
 
 /// The main [`Fanotify`] struct, the primary entry point to the fanotify API.
 #[derive(Debug)]
@@ -64,7 +65,7 @@ impl Fanotify {
 
 impl RawInit {
     /// Create a [`Fanotify`] using the flags in this [`RawInit`].
-    pub fn run(self) -> Result<Fanotify, init::Error> {
+    pub fn into_fanotify(self) -> Result<Fanotify, init::Error> {
         use Errno::*;
         use init::Error::*;
         
@@ -107,14 +108,14 @@ impl TryFrom<RawInit> for Fanotify {
     type Error = init::Error;
     
     fn try_from(this: RawInit) -> Result<Self, Self::Error> {
-        this.run()
+        this.into_fanotify()
     }
 }
 
 impl Init {
     /// Create a [`Fanotify`] using the flags in this [`Init`].
-    pub fn run(&self) -> Result<Fanotify, init::Error> {
-        self.as_raw().run()
+    pub fn to_fanotify(&self) -> Result<Fanotify, init::Error> {
+        self.as_raw().into_fanotify()
     }
 }
 
@@ -122,7 +123,7 @@ impl TryFrom<Init> for Fanotify {
     type Error = init::Error;
     
     fn try_from(this: Init) -> Result<Self, Self::Error> {
-        this.run()
+        this.to_fanotify()
     }
 }
 
@@ -166,11 +167,10 @@ impl Fanotify {
             }),
         })
     }
-    
-    /// Add a [`Mark`] to this [`Fanotify`] group.
-    ///
-    /// See [`Mark`] for more details.
-    pub fn mark<'a>(&self, mark: Mark<'a>) -> Result<(), mark::Error<'a>> {
+}
+
+impl Markable for Fanotify {
+    fn mark<'a>(&self, mark: Mark<'a>) -> Result<(), mark::Error<'a>> {
         self.mark_raw_error(&mark)
             .map_err(|error| mark::Error { error, mark })
     }
