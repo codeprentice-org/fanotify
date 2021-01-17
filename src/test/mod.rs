@@ -184,14 +184,11 @@ fn forever() {
         let mut fanotify = fanotify.buffered_default();
         loop {
             for event in fanotify.read()?.all() {
-                println!("{:?}", event);
-                event
-                    .ok()
-                    .and_then(|it| it.into_file().path())
-                    .and_then(|it| it.ok())
-                    .map(|path| {
-                        println!("{}", path.display());
-                    });
+                let event = event.expect("event error");
+                print!("{:?} {} {:?}", event.id().id(), event.file().variant_name(), event.mask());
+                if let Some(path) = event.into_file().path() {
+                    println!(" {}", path.expect("path error").display());
+                }
             }
         }
     })

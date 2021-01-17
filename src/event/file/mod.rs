@@ -25,6 +25,15 @@ pub enum File<'a> {
 }
 
 impl<'a> File<'a> {
+    /// Get the name of the current file variant, `fd`, `fid`, or `permission`.
+    pub fn variant_name(&self) -> &'static str {
+        match self {
+            Self::FD(_) => "fd",
+            Self::FID(_) => "fid",
+            Self::Permission(_) => "permission",
+        }
+    }
+    
     /// Return the [`FD`](Self::FD) variant if it exists.
     pub fn fd(self) -> Option<FileFD> {
         match self {
