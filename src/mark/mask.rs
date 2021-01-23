@@ -5,7 +5,7 @@ use crate::libc::mark::mask;
 // TODO find better names for some of these
 bitflags! {
     pub struct Mask: u64 {
-        // ACCESS is masked only upon reading
+        /// ACCESS is masked only upon reading
         const ACCESS = mask::FAN_ACCESS;
         const OPEN = mask::FAN_OPEN;
         const OPEN_EXEC = mask::FAN_OPEN_EXEC;
