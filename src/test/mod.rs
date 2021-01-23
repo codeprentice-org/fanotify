@@ -153,47 +153,41 @@ fn many() {
             path: mark::Path::absolute("/tmp"),
         }).unwrap())?;
         let mut driver = fanotify.buffered_default().to::<Driver>();
-        test_unnamed_temp_file(&mut driver, 1, 0)?;
-        test_named_temp_file(&mut driver, 2, 1)?;
-        let mut driver = driver.into_async()?;
-        {
-            block_on(driver.read_n(1))?;
-        }
+        test_unnamed_temp_file(&mut driver)?;
+        test_named_temp_file(&mut driver)?;
         Ok(())
     })
 }
 
-fn test_unnamed_temp_file(driver: &mut Driver, n: usize, event_num: usize) -> Result<(), Box<dyn Error>> {
-    let text = "test";
-    let mut temp_file = tempfile()?;
-    temp_file.write_all(text.as_bytes())?;
-    temp_file.seek(SeekFrom::Start(0))?;
-    let mut buf = String::new();
-    temp_file.read_to_string(&mut buf)?;
-    assert_eq!(text, buf);
-
-    let events = driver.read_n(n)?;
+fn test_unnamed_temp_file(driver: &mut Driver) -> Result<(), Box<dyn Error>> {
+    {
+        let text = "test";
+        let mut temp_file = tempfile()?;
+        temp_file.write_all(text.as_bytes())?;
+        temp_file.seek(SeekFrom::Start(0))?;
+        let mut buf = String::new();
+        temp_file.read_to_string(&mut buf)?;
+        assert_eq!(text, buf);
+    }
+    let events = driver.read_n(1)?;
     println!("unnamed_temp_file event: {:?}", events);
-    assert!(events[event_num].mask().contains(mark::Mask::OPEN));
-    assert!(events[event_num].mask().contains(mark::Mask::ACCESS));
-    assert!(events[event_num].mask().contains(mark::Mask::MODIFY));
+    assert!(events[0].mask().contains(mark::Mask::OPEN | mark::Mask::ACCESS | mark::Mask::MODIFY | mark::Mask::CLOSE_WRITE));
     Ok(())
 }
 
-fn test_named_temp_file(driver: &mut Driver, n: usize, event_num: usize) -> Result<(), Box<dyn Error>> {
-    let text = "test";
-    let mut temp_file = NamedTempFile::new()?;
-    let mut file = temp_file.reopen()?;
-    temp_file.write_all(text.as_bytes())?;
-    let mut buf = String::new();
-    file.read_to_string(&mut buf)?;
-    assert_eq!(text, buf);
-
-    let events = driver.read_n(n)?;
+fn test_named_temp_file(driver: &mut Driver) -> Result<(), Box<dyn Error>> {
+    {
+        let text = "test";
+        let mut temp_file = NamedTempFile::new()?;
+        let mut file = temp_file.reopen()?;
+        temp_file.write_all(text.as_bytes())?;
+        let mut buf = String::new();
+        file.read_to_string(&mut buf)?;
+        assert_eq!(text, buf);
+    }
+    let events = driver.read_n(1)?;
     println!("named_temp_file event: {:?}", events);
-    assert!(events[event_num].mask().contains(mark::Mask::OPEN));
-    assert!(events[event_num].mask().contains(mark::Mask::ACCESS));
-    assert!(events[event_num].mask().contains(mark::Mask::MODIFY));
+    assert!(events[0].mask().contains(mark::Mask::OPEN | mark::Mask::ACCESS | mark::Mask::MODIFY | mark::Mask::CLOSE_WRITE));
     Ok(())
 }
 
