@@ -1,8 +1,22 @@
-use std::{error::Error, io::{Seek, SeekFrom}, mem, path::Path, slice};
-use std::io::{Write, Read};
+use std::{
+    error::Error,
+    io::{
+        Read,
+        Seek,
+        SeekFrom,
+        Write,
+    },
+    mem,
+    path::{
+        Path,
+        PathBuf,
+    },
+    slice,
+};
 
 use apply::Apply;
 use async_io::block_on;
+use semver::Version;
 use tempfile::NamedTempFile;
 use tempfile::tempfile;
 use to_trait::To;
@@ -10,6 +24,7 @@ use to_trait::To;
 use driver::Driver;
 
 use crate::{
+    buffered_fanotify::IntoBufferedFanotify,
     event::{
         buffer::EventBufferSize,
         events::Events,
@@ -26,11 +41,42 @@ use crate::{
         Markable,
         OneAction::Add,
         What::MountPoint,
+        Mask,
     },
 };
-use crate::buffered_fanotify::IntoBufferedFanotify;
 
 mod driver;
+
+#[derive(Debug, Eq, PartialEq)]
+enum Supported {
+    None,
+    Partial,
+    Full,
+}
+
+impl Default for Supported {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl Supported {
+    pub fn get() -> Self {
+        let uname = nix::sys::utsname::uname();
+        if uname.sysname() != "Linux" {
+            return Default::default();
+        }
+        uname.release().apply(Version::parse).map(|version| {
+            if version >= Version::new(5, 1, 0) {
+                Self::Full
+            } else if version >= Version::new(4, 19, 0) {
+                Self::Partial
+            } else {
+                Self::None
+            }
+        }).unwrap_or_default()
+    }
+}
 
 const fn get_init() -> Init {
     Init {
