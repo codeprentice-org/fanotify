@@ -1,16 +1,16 @@
 use std::{
     ffi::CString,
     os::{
-        raw::c_char,
+        raw::{
+            c_char,
+            c_int,
+        },
         unix::{
             ffi::OsStringExt,
             io::{AsRawFd, RawFd},
         },
     },
 };
-use std::os::raw::c_int;
-
-use static_assertions::_core::marker::PhantomData;
 
 use crate::fanotify::Fanotify;
 use crate::libc::call::{RawSysCall, SysCall};
@@ -25,15 +25,6 @@ pub struct RawMark {
     pub(crate) mask: u64,
     pub(crate) dir_fd: RawFd,
     pub(crate) path: Option<CString>,
-}
-
-impl RawMark {
-    pub fn path_ptr(&self) -> *const c_char {
-        match &self.path {
-            None => std::ptr::null(),
-            Some(path) => path.as_ptr(),
-        }
-    }
 }
 
 impl<'a> Mark<'a> {
@@ -59,16 +50,24 @@ impl<'a> Mark<'a> {
 }
 
 #[derive(Debug)]
-pub(crate) struct RawFanotifyMark<'a> {
+pub(crate) struct RawFanotifyMark {
     pub fd: RawFd,
     pub flags: u32,
     pub mask: u64,
     pub dir_fd: RawFd,
-    pub path: *const c_char,
-    phantom: PhantomData<&'a ()>,
+    pub path: Option<CString>,
 }
 
-impl RawSysCall for RawFanotifyMark<'_> {
+impl RawFanotifyMark {
+    fn path_ptr(&self) -> *const c_char {
+        match &self.path {
+            None => std::ptr::null(),
+            Some(path) => path.as_ptr(),
+        }
+    }
+}
+
+impl RawSysCall for RawFanotifyMark {
     type Output = c_int;
     
     fn name() -> &'static str {
@@ -76,7 +75,7 @@ impl RawSysCall for RawFanotifyMark<'_> {
     }
     
     unsafe fn unsafe_call(&self) -> Self::Output {
-        libc::fanotify_mark(self.fd, self.flags, self.mask, self.dir_fd, self.path)
+        libc::fanotify_mark(self.fd, self.flags, self.mask, self.dir_fd, self.path_ptr())
     }
 }
 
@@ -87,7 +86,7 @@ pub(crate) struct FanotifyMark<'a> {
 }
 
 impl<'a> SysCall for FanotifyMark<'a> {
-    type Raw = RawFanotifyMark<'a>;
+    type Raw = RawFanotifyMark;
     type Output = ();
     
     fn to_raw(&self) -> Self::Raw {
@@ -97,8 +96,7 @@ impl<'a> SysCall for FanotifyMark<'a> {
             flags: raw.flags,
             mask: raw.mask,
             dir_fd: raw.dir_fd,
-            path: raw.path_ptr(),
-            phantom: PhantomData,
+            path: raw.path,
         }
     }
     
