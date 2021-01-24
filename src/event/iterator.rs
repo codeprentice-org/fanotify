@@ -107,6 +107,7 @@ impl<'a> EventIterator<'a> {
                 match (has_no_fd, is_perm) {
                     (true, true) => return Err(FidReturnedForPermissionEvent),
                     (false, false) => return Err(FidRequestedButNotReceived),
+                    #[allow(clippy::identity_op)]
                     (true, false) => too_short(BaseAndFidEvent, 0
                         + size_of::<fanotify_event_metadata>()
                         + size_of::<fanotify_event_info_fid>(),
@@ -155,8 +156,9 @@ impl<'a> EventIterator<'a> {
                     .map_err(|info_type| InvalidFidInfoType { info_type })?;
                 {
                     let found = fid.hdr.len as usize;
-                    let expected = 0 +
-                        size_of::<fanotify_event_info_header>()
+                    #[allow(clippy::identity_op)]
+                    let expected = 0
+                        + size_of::<fanotify_event_info_header>()
                         + size_of::<libc::fsid_t>();
                     if found != expected {
                         return Err(TooShort {

@@ -31,6 +31,7 @@ bitflags! {
     }
 }
 
+#[allow(clippy::identity_op)]
 impl Mask {
     // combined flags
     
