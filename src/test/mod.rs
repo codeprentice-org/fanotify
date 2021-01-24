@@ -1,9 +1,15 @@
-use std::{error::Error, fs, io::{
-    Read,
-    Seek,
-    SeekFrom,
-    Write,
-}, mem, path::Path, slice};
+use std::{
+    fs,
+    io::{
+        Read,
+        Seek,
+        SeekFrom,
+        Write,
+    },
+    mem,
+    path::Path,
+    slice,
+};
 
 use apply::Apply;
 use async_io::block_on;
@@ -45,7 +51,7 @@ const fn get_init() -> Init {
     }
 }
 
-fn with_fanotify<F: FnOnce(Fanotify) -> Result<(), Box<dyn Error>>>(f: F) {
+fn with_fanotify<F: FnOnce(Fanotify) -> anyhow::Result<()>>(f: F) {
     match get_init().to_fanotify() {
         Ok(fanotify) => f(fanotify).unwrap(),
         Err(e) => {
@@ -111,7 +117,7 @@ fn init_mark_and_raw_read() {
     });
 }
 
-fn check_events(events: Events<'_>) -> Result<(), Box<dyn Error>> {
+fn check_events(events: Events<'_>) -> anyhow::Result<()> {
     for event in events.fds() {
         event
             .file()
@@ -180,7 +186,7 @@ fn many() {
     })
 }
 
-fn test_unnamed_temp_file(driver: &mut Driver) -> Result<(), Box<dyn Error>> {
+fn test_unnamed_temp_file(driver: &mut Driver) -> anyhow::Result<()> {
     {
         let text = "test";
         let mut temp_file = tempfile()?;
@@ -190,13 +196,13 @@ fn test_unnamed_temp_file(driver: &mut Driver) -> Result<(), Box<dyn Error>> {
         temp_file.read_to_string(&mut buf)?;
         assert_eq!(text, buf);
     }
-    let events = driver.read_n(1)?;
-    println!("unnamed_temp_file event: {:?}", events);
-    assert!(events[0].mask().contains(Mask::OPEN | Mask::ACCESS | Mask::MODIFY | Mask::CLOSE_WRITE));
+    let event = driver.read1()?;
+    println!("unnamed_temp_file event: {:?}", event);
+    assert!(event.mask().contains(Mask::OPEN | Mask::ACCESS | Mask::MODIFY | Mask::CLOSE_WRITE));
     Ok(())
 }
 
-fn test_named_temp_file(driver: &mut Driver) -> Result<(), Box<dyn Error>> {
+fn test_named_temp_file(driver: &mut Driver) -> anyhow::Result<()> {
     {
         let text = "test";
         let mut temp_file = NamedTempFile::new()?;
@@ -206,9 +212,9 @@ fn test_named_temp_file(driver: &mut Driver) -> Result<(), Box<dyn Error>> {
         file.read_to_string(&mut buf)?;
         assert_eq!(text, buf);
     }
-    let events = driver.read_n(1)?;
-    println!("named_temp_file event: {:?}", events);
-    assert!(events[0].mask().contains(mark::Mask::OPEN | mark::Mask::ACCESS | mark::Mask::MODIFY | mark::Mask::CLOSE_WRITE));
+    let event = driver.read1()?;
+    println!("named_temp_file event: {:?}", event);
+    assert!(event.mask().contains(Mask::OPEN | Mask::ACCESS | Mask::MODIFY | Mask::CLOSE_WRITE));
     Ok(())
 }
 
@@ -219,19 +225,19 @@ fn forever() {
             action: Add,
             what: MountPoint,
             flags: mark::Flags::empty(),
-            mask: mark::Mask::ACCESS
-                | mark::Mask::OPEN
-                | mark::Mask::close()
-                | mark::Mask::MODIFY,
+            mask: Mask::ACCESS
+                | Mask::OPEN
+                | Mask::close()
+                | Mask::MODIFY,
             path: mark::Path::absolute("/home"),
         }).unwrap())?;
         let mut fanotify = fanotify.buffered_default();
         loop {
             for event in fanotify.read()?.all() {
-                let event = event.expect("event error");
+                let event = event?;
                 print!("{}, {:05?}, {:20?}", event.file().variant_name(), event.id().id(), event.mask());
                 if let Some(path) = event.into_file().path() {
-                    println!(": {}", path.expect("path error").display());
+                    println!(": {}", path?.display());
                 }
             }
         }
