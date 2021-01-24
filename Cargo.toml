@@ -3,8 +3,6 @@ name = "fanotify"
 version = "0.2.0"
 authors = [
     "Khyber Sen <kkysen@gmail.com>",
-    "Saquib Shazad <saquib.shahzad@uwaterloo.ca>",
-    "Asif Mallik <asif.mallik@columbia.edu>",
     "Rickson Yang <rixin.yang.2001@gmail.com>",
 ]
 edition = "2018"
@@ -29,4 +27,5 @@ to_trait = "0.1.1"
 async-io = "1.3.1"
 
 [dev-dependencies]
+semver = "0.11.0"
 tempfile = "3.2.0"

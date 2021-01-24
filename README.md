@@ -16,10 +16,11 @@ and then just run `just` to see the available commands.
 - [X] (Khyber) Implement ergonomic and safe response write API.
 - [X] (Khyber) Implement async API.
 - [X] (All) Add most documentation.
-- [ ] (All) Document flags, masks, etc. (from man pages).
+- [ ] (Rickson) Document flags, masks, etc. (from man pages).
 - [ ] (All) Review init API.
 - [ ] (All) Review mark API.
 - [ ] (All) Review event API.
 - [ ] (Khyber) Add more strict runtime pre-testing based on init flags.
-- [ ] (Asif) Add robust testing.
+- [ ] (Rickson) Add robust testing.
+- [ ] (Rickson) Setup CI for `rustfmt`, `clippy`, and testing.
 - [ ] (All) Release 0.2.0.
