@@ -160,7 +160,7 @@ fn async_api() {
         block_on(async {
             let mut driver = fanotify.buffered_default().to::<Driver>().into_async()?;
             let path = Path::new("/bin/ls");
-            fs::read_to_string(path)?;
+            fs::read(path)?; // not fs::read_to_string since this /bin/ls is an executable
             let event = driver.read1().await?;
             assert_eq!(event.mask(), Mask::OPEN | Mask::ACCESS);
             assert_eq!(event.into_file().path().unwrap().unwrap().as_path(), path);
