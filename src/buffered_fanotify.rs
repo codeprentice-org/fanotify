@@ -45,10 +45,8 @@ impl Markable for AsyncBufferedFanotify {
 }
 
 impl AsyncBufferedFanotify {
-    // the lifetimes are actually required since it's async
-    // noinspection RsNeedlessLifetimes
     /// See [`Fanotify::read`].
-    pub async fn read<'a>(&'a mut self) -> io::Result<Events<'a>> {
+    pub async fn read(&mut self) -> io::Result<Events<'_>> {
         self.fanotify.read(&mut self.buffer).await
     }
 }

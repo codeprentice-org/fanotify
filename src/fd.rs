@@ -13,7 +13,7 @@ use std::{
 
 use nix::errno::Errno;
 
-use super::libc_call::libc_call;
+use crate::libc::call::libc_call;
 
 /// A wrapper around an open [`RawFd`] file descriptor with RAII semantics
 /// and generic file descriptor related functions

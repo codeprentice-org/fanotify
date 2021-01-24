@@ -2,8 +2,12 @@ use std::{
     fmt::{Display, Formatter},
     fmt,
 };
+use std::os::unix::io::{RawFd, FromRawFd};
 
 use static_assertions::const_assert_eq;
+
+use crate::fd::FD;
+use crate::libc::call::{RawSysCall, SysCall};
 
 use super::{
     EventFlags,
@@ -50,7 +54,7 @@ impl RawInit {
         const_assert_eq!(PreContent as u32, 2 << 2);
         const_assert_eq!(Content as u32, 1 << 2);
         const_assert_eq!(Notify as u32, 0 << 2);
-    
+        
         // unsafe
         [
             Notify,
@@ -109,5 +113,30 @@ impl Display for RawInit {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         // delegate Debug impl to Init
         write!(f, "{}", self.undo_raw())
+    }
+}
+
+impl RawSysCall for RawInit {
+    type Output = RawFd;
+    
+    fn name() -> &'static str {
+        "fanotify_init"
+    }
+    
+    unsafe fn unsafe_call(&self) -> Self::Output {
+        libc::fanotify_init(self.flags, self.event_flags)
+    }
+}
+
+impl SysCall for Init {
+    type Raw = RawInit;
+    type Output = FD;
+    
+    fn to_raw(&self) -> Self::Raw {
+        self.as_raw()
+    }
+    
+    fn convert_output(fd: RawFd) -> FD {
+        unsafe { FD::from_raw_fd(fd) }
     }
 }

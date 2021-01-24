@@ -6,6 +6,7 @@ pub use mark::{Mark, OneMark as One};
 pub use mask::Mask;
 pub use path::Path;
 pub use raw::{RawFlags, RawMark};
+pub(crate) use raw::FanotifyMark;
 pub use what::What;
 pub use markable::Markable;
 

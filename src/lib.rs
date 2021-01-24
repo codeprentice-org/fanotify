@@ -1,6 +1,5 @@
 pub mod fd;
-pub mod libc;
-mod libc_call;
+mod libc;
 pub mod init;
 pub mod mark;
 pub mod event;

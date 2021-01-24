@@ -6,6 +6,8 @@ use std::{
 
 use nix::errno::Errno;
 
+use crate::libc::call::SysCall;
+
 use super::{
     event::{
         buffer::EventBuffer,
@@ -19,10 +21,10 @@ use super::{
         NotificationClass::Notify,
         RawInit,
     },
-    libc_call::{ImpossibleSysCallError, libc_call, libc_void_call},
     mark::{
         self,
         Action::{Add, Remove},
+        FanotifyMark,
         Mark,
         Markable,
     },
@@ -63,21 +65,19 @@ impl Fanotify {
     }
 }
 
-impl RawInit {
-    /// Create a [`Fanotify`] using the flags in this [`RawInit`].
-    pub fn into_fanotify(self) -> Result<Fanotify, init::Error> {
+impl Init {
+    /// Create a [`Fanotify`] using the flags in this [`Init`].
+    pub fn to_fanotify(&self) -> Result<Fanotify, init::Error> {
         use Errno::*;
         use init::Error::*;
         
-        // construct init object with raw init and check for argument errors
-        let init = self.undo_raw();
-        if init.flags.contains(Flags::REPORT_FID) && init.notification_class != Notify {
+        // check for argument errors
+        if self.flags.contains(Flags::REPORT_FID) && self.notification_class != Notify {
             return Err(InvalidArgument);
         }
         
-        // Try to initialize Fanotify with flag then catch and return status
-        libc_call(|| unsafe { libc::fanotify_init(self.flags, self.event_flags) })
-            .map_err(|errno| match errno {
+        self.call()
+            .map_err(|error| match error.errno {
                 EMFILE => ExceededFanotifyGroupPerProcessLimit,
                 ENFILE => ExceededOpenFileDescriptorPerProcessLimit,
                 ENOMEM => OutOfMemory,
@@ -88,34 +88,10 @@ impl RawInit {
                 // so this must mean only certain features are supported,
                 // like on WSL 2, where Flags::REPORT_FID results in an EINVAL
                 EINVAL => FeatureUnsupported,
-                _ => panic!("{}", ImpossibleSysCallError {
-                    syscall: "fanotify_init",
-                    args: format!(
-                        "flags = {}, event_flags = {}; init = {}",
-                        self.flags, self.event_flags,
-                        self,
-                    ),
-                    errno,
-                }),
+                _ => error.impossible(),
             })
-            .map(|fd| unsafe { FD::from_raw_fd(fd) })
             .and_then(|fd| if fd.check() { Ok(fd) } else { Err(InvalidFd { fd }) })
-            .map(|fd| Fanotify { fd, init: self })
-    }
-}
-
-impl TryFrom<RawInit> for Fanotify {
-    type Error = init::Error;
-    
-    fn try_from(this: RawInit) -> Result<Self, Self::Error> {
-        this.into_fanotify()
-    }
-}
-
-impl Init {
-    /// Create a [`Fanotify`] using the flags in this [`Init`].
-    pub fn to_fanotify(&self) -> Result<Fanotify, init::Error> {
-        self.as_raw().into_fanotify()
+            .map(|fd| Fanotify { fd, init: self.as_raw() })
     }
 }
 
@@ -139,11 +115,11 @@ impl Fanotify {
             // but that requires init.notification_class == Notify itself
             return Err(InvalidArgument);
         }
-        let raw = mark.to_raw();
-        libc_void_call(|| unsafe {
-            libc::fanotify_mark(self.fd.as_raw_fd(), raw.flags, raw.mask, raw.dir_fd, raw.path_ptr())
-        }).map_err(|errno| match errno {
-            EBADF => BadDirFd { fd: raw.dir_fd },
+        FanotifyMark {
+            fanotify: self,
+            mark,
+        }.call().map_err(|error| match error.errno {
+            EBADF => BadDirFd { fd: error.raw_args.dir_fd },
             ENOTDIR => NotADirectory,
             ENOENT if mark.action == Add => PathDoesNotExist,
             ENODEV => PathDoesNotSupportFSID,
@@ -155,16 +131,8 @@ impl Fanotify {
             // and ENOSYS is returned if fanotify_init() is not supported at all
             // so this must mean only certain features are supported
             EINVAL => FeatureUnsupported,
-            // ENOSYS should be caught be init
-            ENOSYS | _ => panic!("{}", ImpossibleSysCallError {
-                syscall: "fanotify_mark",
-                args: format!(
-                    "fd = {}, flags = {}, mask = {}, dir_fd = {}, path = {:?}; mark = {}",
-                    self.fd, raw.flags, raw.mask, raw.dir_fd, raw.path_ptr(),
-                    mark,
-                ),
-                errno,
-            }),
+            // ENOSYS is possible, but should be caught by init
+            _ => error.impossible(),
         })
     }
 }

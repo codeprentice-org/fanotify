@@ -8,6 +8,12 @@ use std::{
         },
     },
 };
+use std::os::raw::c_int;
+
+use static_assertions::_core::marker::PhantomData;
+
+use crate::fanotify::Fanotify;
+use crate::libc::call::{RawSysCall, SysCall};
 
 use super::Mark;
 
@@ -49,5 +55,54 @@ impl<'a> Mark<'a> {
                     CString::from_vec_unchecked(bytes)
                 }),
         }
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct RawFanotifyMark<'a> {
+    pub fd: RawFd,
+    pub flags: u32,
+    pub mask: u64,
+    pub dir_fd: RawFd,
+    pub path: *const c_char,
+    phantom: PhantomData<&'a ()>,
+}
+
+impl RawSysCall for RawFanotifyMark<'_> {
+    type Output = c_int;
+    
+    fn name() -> &'static str {
+        "fanotify_mark"
+    }
+    
+    unsafe fn unsafe_call(&self) -> Self::Output {
+        libc::fanotify_mark(self.fd, self.flags, self.mask, self.dir_fd, self.path)
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct FanotifyMark<'a> {
+    pub fanotify: &'a Fanotify,
+    pub mark: &'a Mark<'a>,
+}
+
+impl<'a> SysCall for FanotifyMark<'a> {
+    type Raw = RawFanotifyMark<'a>;
+    type Output = ();
+    
+    fn to_raw(&self) -> Self::Raw {
+        let raw = self.mark.to_raw();
+        Self::Raw {
+            fd: self.fanotify.fd.as_raw_fd(),
+            flags: raw.flags,
+            mask: raw.mask,
+            dir_fd: raw.dir_fd,
+            path: raw.path_ptr(),
+            phantom: PhantomData,
+        }
+    }
+    
+    fn convert_output(output: c_int) {
+        assert_eq!(output, 0);
     }
 }

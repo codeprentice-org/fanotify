@@ -8,6 +8,13 @@ build *args:
 
 alias b := build
 
+check *args:
+	@# actually run clippy for more warnings
+	@# clippy also runs check
+	cargo clippy {{args}}
+
+alias c := check
+
 test *args:
 	cargo test {{args}}
 
