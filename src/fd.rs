@@ -11,7 +11,6 @@ use std::{
     path::{PathBuf, Path},
 };
 
-use libc;
 use nix::errno::Errno;
 
 use super::libc_call::libc_call;

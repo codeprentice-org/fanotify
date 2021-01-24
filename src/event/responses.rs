@@ -169,7 +169,7 @@ impl<'a> Responses<'a> {
         // a write this small should definitely succeed, so only try once
         match bytes_written {
             0 => Ok(()),
-            _ => return Err(Errno::EAGAIN),
+            _ => Err(Errno::EAGAIN),
         }
     }
     

@@ -10,6 +10,7 @@ mod notification_class;
 mod flags;
 mod rw;
 mod event_flags;
+#[allow(clippy::module_inception)]
 mod init;
 mod raw;
 mod error;

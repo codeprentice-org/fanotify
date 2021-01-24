@@ -13,6 +13,7 @@ mod dir_fd;
 mod path;
 mod error;
 mod raw;
+#[allow(clippy::module_inception)]
 mod mark;
 mod action;
 mod what;

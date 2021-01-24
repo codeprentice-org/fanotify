@@ -57,11 +57,11 @@ impl<'a> EventIterator<'a> {
         let too_short = |what: TooShortError, expected: usize| -> std::result::Result<(), EventError> {
             let found = remaining.len();
             if found < expected {
-                return Err(TooShort {
+                Err(TooShort {
                     what,
                     found,
                     expected,
-                });
+                })
             } else {
                 Ok(())
             }
@@ -196,7 +196,7 @@ impl<'a> Iterator for EventIterator<'a> {
     
     fn next(&mut self) -> Option<Self::Item> {
         if self.events.as_bytes().len() <= self.read_index {
-            return None;
+            None
         } else {
             Some(self.next_unchecked())
         }

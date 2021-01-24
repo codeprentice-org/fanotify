@@ -95,7 +95,7 @@ impl RawInit {
 
 impl From<Init> for RawInit {
     fn from(init: Init) -> Self {
-        return init.as_raw();
+        init.as_raw()
     }
 }
 
