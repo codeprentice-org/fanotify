@@ -53,7 +53,10 @@ const fn get_init() -> Init {
 
 fn with_fanotify<F: FnOnce(Fanotify) -> anyhow::Result<()>>(f: F) {
     match get_init().to_fanotify() {
-        Ok(fanotify) => f(fanotify).unwrap(),
+        Ok(fanotify) => match f(fanotify) {
+            Ok(()) => {}
+            Err(e) => panic!("{}", e),
+        }
         Err(e) => {
             assert_eq!(e, init::Error::FanotifyUnsupported);
         }
