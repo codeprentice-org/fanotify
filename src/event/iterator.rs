@@ -145,43 +145,41 @@ impl<'a> EventIterator<'a> {
         
         let file = if is_perm {
             File::Permission(FilePermission::new(get_fd()?, self.events.responses()))
-        } else {
-            if received_fid {
-                // already checked that we have enough bytes for this
-                let remaining = &remaining[size_of::<fanotify_event_metadata>()..];
-                let ptr = remaining.as_ptr() as *const fanotify_event_info_fid;
-                let fid = unsafe { &*ptr };
-                let info_type: InfoType = fid.hdr.info_type
-                    .try_into()
-                    .map_err(|info_type| InvalidFidInfoType { info_type })?;
-                {
-                    let found = fid.hdr.len as usize;
-                    #[allow(clippy::identity_op)]
+        } else if received_fid {
+            // already checked that we have enough bytes for this
+            let remaining = &remaining[size_of::<fanotify_event_metadata>()..];
+            let ptr = remaining.as_ptr() as *const fanotify_event_info_fid;
+            let fid = unsafe { &*ptr };
+            let info_type: InfoType = fid.hdr.info_type
+                .try_into()
+                .map_err(|info_type| InvalidFidInfoType { info_type })?;
+            {
+                let found = fid.hdr.len as usize;
+                #[allow(clippy::identity_op)]
                     let expected = 0
-                        + size_of::<fanotify_event_info_header>()
-                        + size_of::<libc::fsid_t>();
-                    if found != expected {
-                        return Err(TooShort {
-                            what: FidEvent,
-                            found,
-                            expected,
-                        });
-                    }
+                    + size_of::<fanotify_event_info_header>()
+                    + size_of::<libc::fsid_t>();
+                if found != expected {
+                    return Err(TooShort {
+                        what: FidEvent,
+                        found,
+                        expected,
+                    });
                 }
-                File::FID(FileFID {
-                    info_type,
-                    file_system_id: FileSystemId {
-                        fsid: fid.fsid,
-                    },
-                    handle: FileHandle {
-                        handle: &fid.handle,
-                    },
-                })
-            } else {
-                File::FD(FileFD {
-                    fd: get_fd()?,
-                })
             }
+            File::FID(FileFID {
+                info_type,
+                file_system_id: FileSystemId {
+                    fsid: fid.fsid,
+                },
+                handle: FileHandle {
+                    handle: &fid.handle,
+                },
+            })
+        } else {
+            File::FD(FileFD {
+                fd: get_fd()?,
+            })
         };
         
         let this = Event {
