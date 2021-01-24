@@ -43,12 +43,17 @@ impl DirFd<'static> {
         unsafe { Self::const_from_raw_fd(libc::AT_FDCWD) }
     }
     
-    pub const unsafe fn invalid() -> Self {
+    /// # Safety
+    /// This will create an invalid directory file descriptor.
+    /// Only use it where the [`DirFd`] will be ignored or you want it to cause an error.
+    pub(in super) const unsafe fn invalid() -> Self {
         Self::const_from_raw_fd(-1)
     }
 }
 
 impl<'a> DirFd<'a> {
+    /// # Safety
+    /// See [`FromRawFd`].  This is just a `const` version of that.
     pub const unsafe fn const_from_raw_fd(fd: RawFd) -> Self {
         Self {
             fd,

@@ -1,3 +1,5 @@
+// #![deny(warnings)]
+
 pub mod fd;
 mod libc;
 pub mod init;

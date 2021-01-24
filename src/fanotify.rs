@@ -57,6 +57,9 @@ impl Fanotify {
     /// We can't `impl `[`FromRawFd`]` for `[`Fanotify`] because [`Fanotify`] also contains a [`RawInit`].
     /// Thus, we provide this analogous unsafe API for constructing a [`Fanotify`] from a [`RawFd`]
     /// and the corresponding [`RawInit`] flags used to create the [`RawFd`].
+    ///
+    /// # Safety
+    /// See [`FromRawFd`].
     pub unsafe fn from_raw_fd(fd: RawFd, init: RawInit) -> Self {
         Self {
             fd: FD::from_raw_fd(fd),

@@ -7,16 +7,12 @@ use std::{
         Write,
     },
     mem,
-    path::{
-        Path,
-        PathBuf,
-    },
+    path::Path,
     slice,
 };
 
 use apply::Apply;
 use async_io::block_on;
-use semver::Version;
 use tempfile::NamedTempFile;
 use tempfile::tempfile;
 use to_trait::To;
@@ -39,7 +35,6 @@ use crate::{
         self,
         Mark,
         Markable,
-        Mask,
         OneAction::Add,
         What::MountPoint,
     },
