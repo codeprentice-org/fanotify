@@ -1,15 +1,9 @@
-use std::{
-    error::Error,
-    io::{
-        Read,
-        Seek,
-        SeekFrom,
-        Write,
-    },
-    mem,
-    path::Path,
-    slice,
-};
+use std::{error::Error, fs, io::{
+    Read,
+    Seek,
+    SeekFrom,
+    Write,
+}, mem, path::Path, slice};
 
 use apply::Apply;
 use async_io::block_on;
@@ -35,6 +29,7 @@ use crate::{
         self,
         Mark,
         Markable,
+        Mask,
         OneAction::Add,
         What::MountPoint,
     },
@@ -69,7 +64,7 @@ fn get_mark() -> Mark<'static> {
         action: Add,
         what: MountPoint,
         flags: mark::Flags::empty(),
-        mask: mark::Mask::OPEN | mark::Mask::close(),
+        mask: Mask::OPEN | Mask::close(),
         path: mark::Path::absolute("/home"),
     }).unwrap()
 }
@@ -151,16 +146,31 @@ fn init_mark_and_read_async() {
 }
 
 #[test]
+fn async_api() {
+    with_fanotify(|fanotify| {
+        block_on(async {
+            let mut driver = fanotify.buffered_default().to::<Driver>().into_async()?;
+            let path = Path::new("/bin/ls");
+            fs::read_to_string(path)?;
+            let event = driver.read1().await?;
+            assert_eq!(event.mask(), Mask::OPEN | Mask::ACCESS);
+            assert_eq!(event.into_file().path().unwrap().unwrap().as_path(), path);
+            Ok(())
+        })
+    })
+}
+
+#[test]
 fn many() {
     with_fanotify(|fanotify| {
         fanotify.mark(Mark::one(mark::One {
             action: Add,
             what: MountPoint,
             flags: mark::Flags::empty(),
-            mask: mark::Mask::ACCESS
-                | mark::Mask::OPEN
-                | mark::Mask::close()
-                | mark::Mask::MODIFY,
+            mask: Mask::ACCESS
+                | Mask::OPEN
+                | Mask::close()
+                | Mask::MODIFY,
             path: mark::Path::absolute("/tmp"),
         }).unwrap())?;
         let mut driver = fanotify.buffered_default().to::<Driver>();
@@ -182,7 +192,7 @@ fn test_unnamed_temp_file(driver: &mut Driver) -> Result<(), Box<dyn Error>> {
     }
     let events = driver.read_n(1)?;
     println!("unnamed_temp_file event: {:?}", events);
-    assert!(events[0].mask().contains(mark::Mask::OPEN | mark::Mask::ACCESS | mark::Mask::MODIFY | mark::Mask::CLOSE_WRITE));
+    assert!(events[0].mask().contains(Mask::OPEN | Mask::ACCESS | Mask::MODIFY | Mask::CLOSE_WRITE));
     Ok(())
 }
 

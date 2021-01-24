@@ -36,6 +36,11 @@ impl Driver {
         assert_eq!(events.len(), n);
         Ok(events)
     }
+    
+    pub fn read1(&mut self) -> io::Result<Event> {
+        let events = self.read_n(1)?;
+        Ok(events.into_iter().next().unwrap())
+    }
 }
 
 pub struct AsyncDriver {
@@ -62,11 +67,15 @@ impl AsyncDriver {
             .apply(Ok)
     }
     
-    // noinspection RsNeedlessLifetimes
-    pub async fn read_n<'a>(&'a mut self, n: usize) -> io::Result<Vec<Event<'a>>> {
+    pub async fn read_n(&mut self, n: usize) -> io::Result<Vec<Event<'_>>> {
         let events = self.read().await?.collect::<Vec<_>>();
         assert_eq!(events.len(), n);
         Ok(events)
+    }
+    
+    pub async fn read1(&mut self) -> io::Result<Event<'_>> {
+        let events = self.read_n(1).await?;
+        Ok(events.into_iter().next().unwrap())
     }
 }
 
