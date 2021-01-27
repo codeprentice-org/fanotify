@@ -35,7 +35,7 @@ pub enum RawError {
     ExceededMarkLimit,
     #[error("kernel out of memory")]
     OutOfMemory,
-    #[error("the kernel does not support a certain feature for fanotify_init()")]
+    #[error("the kernel does not support a certain feature for fanotify_mark()")]
     FeatureUnsupported,
 }
 

@@ -1,8 +1,8 @@
 use apply::Apply;
 use semver::Version;
 
-#[derive(Debug, Eq, PartialEq)]
-enum Supported {
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub enum Supported {
     None,
     Partial,
     Full,
@@ -32,4 +32,8 @@ impl Supported {
                 }
             }).unwrap_or_default()
     }
+}
+
+pub fn supports(supported: Supported) -> bool {
+    Supported::get() >= supported
 }

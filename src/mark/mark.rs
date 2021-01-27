@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -61,6 +62,27 @@ impl Display for Mark<'_> {
 }
 
 impl<'a> Mark<'a> {
+    /// Turn a [`OneMark`] into a [`Mark`].
+    ///
+    /// This can only fail if the [`OneMark`] contains an empty [`Mask`],
+    /// since that's not allowed.
+    ///
+    /// Also available as [`Mark::try_from`].
+    ///
+    /// ```
+    /// use fanotify::mark;
+    /// use fanotify::mark::Mark;
+    /// use fanotify::mark::OneAction::Add;
+    /// use fanotify::mark::What::FileSystem;
+    ///
+    /// assert_eq!(Mark::one(mark::One {
+    ///     action: Add,
+    ///     what: FileSystem,
+    ///     flags: mark::Flags::empty(),
+    ///     mask: mark::Mask::empty(),
+    ///     path: mark::Path::current_working_directory(),
+    /// }), Err(mark::StaticError::EmptyMask));
+    /// ```
     pub const fn one(mark: OneMark<'a>) -> Result<Self, StaticError> {
         let OneMark {
             action,
@@ -90,5 +112,14 @@ impl<'a> Mark<'a> {
             mask: Mask::all(), // ignored, but empty is invalid on add/remove
             path: Path::current_working_directory(), // ignored, but good default with 'static lifetime
         }
+    }
+}
+
+impl<'a> TryFrom<OneMark<'a>> for Mark<'a> {
+    type Error = StaticError;
+    
+    /// See [`Mark::one`].
+    fn try_from(this: OneMark<'a>) -> Result<Self, Self::Error> {
+        Mark::one(this)
     }
 }
