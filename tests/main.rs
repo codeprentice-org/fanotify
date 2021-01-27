@@ -5,15 +5,16 @@ use std::io::Read;
 use std::io::Seek;
 use std::io::SeekFrom;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::path::PathBuf;
 
 use async_io::block_on;
 use tempfile::NamedTempFile;
 use tempfile::tempfile;
 use to_trait::To;
 
-use fanotify::fanotify::buffered_fanotify::IntoBufferedFanotify;
 use fanotify::event::iterator_ext::IntoEvents;
+use fanotify::fanotify::buffered_fanotify::IntoBufferedFanotify;
 use fanotify::init;
 use fanotify::init::Flags;
 use fanotify::init::Init;
@@ -24,6 +25,7 @@ use fanotify::mark::OneAction::Add;
 use fanotify::mark::What::FileSystem;
 use fanotify::mark::What::MountPoint;
 
+use crate::util::AnyResult;
 use crate::util::driver::Driver;
 use crate::util::get_init;
 use crate::util::supported::Supported;
@@ -32,8 +34,6 @@ use crate::util::supported::Supported::Partial;
 use crate::util::supported::supports;
 
 mod util;
-
-type AnyResult<T = ()> = anyhow::Result<T>;
 
 #[test]
 fn init_unsupported() {
