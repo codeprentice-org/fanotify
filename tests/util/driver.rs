@@ -18,7 +18,7 @@ impl From<BufferedFanotify> for Driver {
     }
 }
 
-fn check_n(events: impl Iterator<Item=Event>, n: usize) -> Vec<Event> {
+fn check_n<'a>(events: impl Iterator<Item=Event<'a>>, n: usize) -> Vec<Event<'a>> {
     let events = events.collect::<Vec<_>>();
     assert_eq!(events.len(), n,
                "\nactual len {} != {}: {}",
