@@ -165,6 +165,10 @@ fn tmp_file(driver: &mut Driver, text: &str, mut file: impl Read) -> AnyResult {
     Ok(())
 }
 
+/// If `/tmp` is not mounted as `tmpfs`,
+/// then this test can't be run in parallel to others on the same mount point.
+/// You can run `sudo mount -t tmpfs tmpfs /tmp` to fix this.
+/// After testing, run `sudo umount /tmp` to undo it.
 #[test]
 fn tmp() -> AnyResult {
     if !supports(Partial) {
