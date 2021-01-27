@@ -131,7 +131,7 @@ fn async_api() -> AnyResult {
         let path = Path::new("/bin/ls");
         let _ = fs::read(path)?; // not fs::read_to_string since this /bin/ls is an executable
         let event = driver.read1().await?;
-        assert_eq!(event.mask(), Mask::OPEN | Mask::ACCESS);
+        assert_eq!(event.mask(), Mask::OPEN | Mask::ACCESS | Mask::CLOSE_NO_WRITE);
         assert_eq!(event.into_file().path().unwrap().unwrap().as_path(), path);
         Ok(())
     })
