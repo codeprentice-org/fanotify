@@ -18,6 +18,15 @@ impl From<BufferedFanotify> for Driver {
     }
 }
 
+fn check_n(events: impl Iterator<Item=Event>, n: usize) -> Vec<Event> {
+    let events = events.collect::<Vec<_>>();
+    assert_eq!(events.len(), n,
+               "\nactual len {} != {}: {}",
+               events.len(), n, DisplayEvents(&events),
+    );
+    events
+}
+
 impl Driver {
     pub fn read(&mut self) -> io::Result<impl Iterator<Item=Event>> {
         self
@@ -30,12 +39,7 @@ impl Driver {
     }
     
     pub fn read_n(&mut self, n: usize) -> io::Result<Vec<Event>> {
-        let events = self.read()?.collect::<Vec<_>>();
-        assert_eq!(events.len(), n,
-                   "actual len {} != {}: {}",
-                   events.len(), n, DisplayEvents(&events),
-        );
-        Ok(events)
+        Ok(check_n(self.read()?, n))
     }
     
     pub fn read1(&mut self) -> io::Result<Event> {
@@ -69,9 +73,7 @@ impl AsyncDriver {
     }
     
     pub async fn read_n(&mut self, n: usize) -> io::Result<Vec<Event<'_>>> {
-        let events = self.read().await?.collect::<Vec<_>>();
-        assert_eq!(events.len(), n);
-        Ok(events)
+        Ok(check_n(self.read().await?, n))
     }
     
     pub async fn read1(&mut self) -> io::Result<Event<'_>> {

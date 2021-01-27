@@ -33,7 +33,7 @@ impl Display for DisplayEvents<'_, '_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "[\n")?;
         for event in self.0 {
-            write!(f, "\t{},\n", event.display())?;
+            write!(f, "    {},\n", event.display())?;
         }
         write!(f, "]")?;
         Ok(())
