@@ -85,7 +85,15 @@ impl AsyncDriver {
 impl Driver {
     pub fn into_async(self) -> io::Result<AsyncDriver> {
         AsyncDriver {
-            fanotify: self.fanotify.into_async()?
+            fanotify: self.fanotify.into_async()?,
+        }.apply(Ok)
+    }
+}
+
+impl AsyncDriver {
+    pub fn into_sync(self) -> io::Result<Driver> {
+        Driver {
+            fanotify: self.fanotify.into_sync()?,
         }.apply(Ok)
     }
 }

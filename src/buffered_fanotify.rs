@@ -91,3 +91,13 @@ impl BufferedFanotify {
         }.apply(Ok)
     }
 }
+
+impl AsyncBufferedFanotify {
+    pub fn into_sync(self) -> io::Result<BufferedFanotify> {
+        let Self {fanotify, buffer} = self;
+        BufferedFanotify {
+            fanotify: fanotify.into_sync()?,
+            buffer,
+        }.apply(Ok)
+    }
+}

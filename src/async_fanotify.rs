@@ -42,6 +42,10 @@ impl AsyncFanotify {
         self.inner.into_inner()
     }
     
+    pub fn into_sync(self) -> io::Result<Fanotify> {
+        self.into_fanotify()
+    }
+    
     pub fn into_inner(self) -> io::Result<Fanotify> {
         self.into_fanotify()
     }

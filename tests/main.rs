@@ -1,10 +1,11 @@
 use std::convert::TryInto;
 use std::fs;
+use std::io;
 use std::io::Read;
 use std::io::Seek;
 use std::io::SeekFrom;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use async_io::block_on;
 use tempfile::NamedTempFile;
@@ -17,7 +18,6 @@ use fanotify::init;
 use fanotify::init::Flags;
 use fanotify::init::Init;
 use fanotify::mark;
-use fanotify::mark::Mark;
 use fanotify::mark::Markable;
 use fanotify::mark::Mask;
 use fanotify::mark::OneAction::Add;
@@ -107,33 +107,50 @@ fn create_mask_unsupported() -> AnyResult {
     })
 }
 
-#[test]
-fn async_api() -> AnyResult {
+fn mark_and_read(read1: impl Fn(Driver) -> io::Result<(Mask, Option<io::Result<PathBuf>>)>) -> AnyResult {
     if !supports(Partial) {
         return Ok(());
     }
-    block_on(async {
-        let mut driver = get_init()
-            .to_fanotify()?
-            .buffered_default()
-            .to::<Driver>()
-            .into_async()?;
-        driver.fanotify.mark(Mark::one(mark::One {
-            action: Add,
-            what: MountPoint,
-            flags: mark::Flags::empty(),
-            mask: Mask::ACCESS
-                | Mask::OPEN
-                | Mask::close()
-                | Mask::MODIFY,
-            path: mark::Path::absolute("/bin"),
-        }).unwrap())?;
-        let path = Path::new("/bin/ls");
-        let _ = fs::read(path)?; // not fs::read_to_string since this /bin/ls is an executable
-        let event = driver.read1().await?;
-        assert_eq!(event.mask(), Mask::OPEN | Mask::ACCESS | Mask::CLOSE_NO_WRITE);
-        assert_eq!(event.into_file().path().unwrap().unwrap().as_path(), path);
-        Ok(())
+    let driver = get_init()
+        .to_fanotify()?
+        .buffered_default()
+        .to::<Driver>();
+    driver.fanotify.mark(mark::One {
+        action: Add,
+        what: MountPoint,
+        flags: mark::Flags::empty(),
+        mask: Mask::ACCESS
+            | Mask::OPEN
+            | Mask::close()
+            | Mask::MODIFY,
+        path: mark::Path::absolute("/etc"),
+    }.try_into()?)?;
+    let path = Path::new("/etc/password");
+    let _ = fs::read(path)?;
+    let (mask, event_path) = read1(driver)?;
+    assert_eq!(mask, Mask::OPEN | Mask::ACCESS | Mask::CLOSE_NO_WRITE);
+    assert_eq!(event_path.unwrap()?.as_path(), path);
+    Ok(())
+}
+
+#[test]
+fn sync_api() -> AnyResult {
+    mark_and_read(|mut driver| {
+        let event = driver.read1()?;
+        Ok((event.mask(), event.file().path()))
+    })
+}
+
+#[test]
+fn async_api() -> AnyResult {
+    mark_and_read(|driver| {
+        let mut driver = driver.into_async()?;
+        let event = block_on(driver.read1())?;
+        let mask = event.mask();
+        let path = event.file().path();
+        drop(event);
+        let _ = driver.into_sync()?;
+        Ok((mask, path))
     })
 }
 
