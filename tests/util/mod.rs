@@ -1,3 +1,6 @@
+
+
+use fanotify::event::event::Event;
 use fanotify::init::Flags;
 use fanotify::init::Init;
 

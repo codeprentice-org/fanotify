@@ -8,3 +8,4 @@ pub mod iterator;
 pub mod error;
 pub mod buffer;
 pub mod iterator_ext;
+pub mod display;

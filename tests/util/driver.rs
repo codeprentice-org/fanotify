@@ -6,6 +6,7 @@ use fanotify::buffered_fanotify::AsyncBufferedFanotify;
 use fanotify::buffered_fanotify::BufferedFanotify;
 use fanotify::event::event::Event;
 use fanotify::event::iterator_ext::IntoEvents;
+use fanotify::event::display::DisplayEvents;
 
 pub struct Driver {
     pub fanotify: BufferedFanotify,
@@ -30,7 +31,10 @@ impl Driver {
     
     pub fn read_n(&mut self, n: usize) -> io::Result<Vec<Event>> {
         let events = self.read()?.collect::<Vec<_>>();
-        assert_eq!(events.len(), n);
+        assert_eq!(events.len(), n,
+                   "actual len {} != {}: {}",
+                   events.len(), n, DisplayEvents(&events),
+        );
         Ok(events)
     }
     

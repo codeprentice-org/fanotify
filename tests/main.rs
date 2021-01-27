@@ -209,10 +209,7 @@ fn forever() -> AnyResult {
     loop {
         for event in fanotify.read()?.all() {
             let event = event?;
-            print!("{}, {:05?}, {:20?}", event.file().variant_name(), event.id().id(), event.mask());
-            if let Some(path) = event.into_file().path() {
-                println!(": {}", path?.display());
-            }
+            println!("{}", &event.display());
         }
     }
 }
