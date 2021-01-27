@@ -1,20 +1,15 @@
-use std::{
-    mem::size_of,
-    slice,
-};
+use std::mem::size_of;
+use std::slice;
 
 use nix::errno::Errno;
 
-use crate::{
-    fanotify::Fanotify,
-    init,
-};
 use crate::event::buffer::EventBuffer;
+use crate::fanotify::Fanotify;
+use crate::init;
 
-use super::{
-    id::Id,
-    responses::{RC, Responses},
-};
+use super::id::Id;
+use super::responses::RC;
+use super::responses::Responses;
 
 /// A buffer of [`Event`]s from one [`Fanotify::read`] call.
 ///

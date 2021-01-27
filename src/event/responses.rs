@@ -1,25 +1,17 @@
-use std::{
-    cell::RefCell,
-    fmt::{
-        self,
-        Debug,
-        Formatter,
-    },
-    mem::size_of,
-    rc::Rc,
-    slice,
-};
+use std::cell::RefCell;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Formatter;
+use std::mem::size_of;
+use std::rc::Rc;
+use std::slice;
 
 use nix::errno::Errno;
-
-use super::{
-    file::permission::RawFilePermission,
-    super::{
-        fanotify::Fanotify,
-        libc::write::fanotify_response,
-    },
-};
 use to_trait::To;
+
+use super::file::permission::RawFilePermission;
+use super::super::fanotify::Fanotify;
+use super::super::libc::write::fanotify_response;
 
 impl fanotify_response {
     /// Reinterpret as a byte slice for [`writing`](libc::write) to a [`Fanotify`] instance.

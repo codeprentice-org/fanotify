@@ -1,21 +1,13 @@
-use std::{
-    convert::TryFrom,
-    fmt::{
-        self,
-        Debug,
-        Formatter,
-    },
-};
+use std::convert::TryFrom;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Formatter;
 
-use crate::{
-    fd::FD,
-    libc::read::{
-        FAN_EVENT_INFO_TYPE_DFID,
-        FAN_EVENT_INFO_TYPE_DFID_NAME,
-        FAN_EVENT_INFO_TYPE_FID,
-        fanotify_event_file_handle,
-    },
-};
+use crate::fd::FD;
+use crate::libc::read::FAN_EVENT_INFO_TYPE_DFID;
+use crate::libc::read::FAN_EVENT_INFO_TYPE_DFID_NAME;
+use crate::libc::read::FAN_EVENT_INFO_TYPE_FID;
+use crate::libc::read::fanotify_event_file_handle;
 
 /// A filesystem id.  It uniquely represents any filesystem object.
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]

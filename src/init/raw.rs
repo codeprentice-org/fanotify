@@ -1,23 +1,25 @@
-use std::{
-    fmt::{Display, Formatter},
-    fmt,
-};
-use std::os::unix::io::{RawFd, FromRawFd};
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::os::unix::io::FromRawFd;
+use std::os::unix::io::RawFd;
 
 use static_assertions::const_assert_eq;
 
 use crate::fd::FD;
 use crate::libc::call::{RawSysCall, SysCall};
 
-use super::{
-    EventFlags,
-    Flags,
-    Init,
-    NotificationClass,
-    NotificationClass::{Content, Notify, PreContent},
-    ReadWrite,
-    ReadWrite::{Read, ReadAndWrite, Write},
-};
+use super::EventFlags;
+use super::Flags;
+use super::Init;
+use super::NotificationClass;
+use super::NotificationClass::Content;
+use super::NotificationClass::Notify;
+use super::NotificationClass::PreContent;
+use super::ReadWrite;
+use super::ReadWrite::Read;
+use super::ReadWrite::ReadAndWrite;
+use super::ReadWrite::Write;
 
 /// [`Init`] flags compressed into the actual flags used in the [`libc::fanotify_init`] call.
 /// You can seamlessly convert back and forth between an [`Init`] and a [`RawInit`].

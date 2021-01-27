@@ -4,10 +4,8 @@ use thiserror::Error;
 
 use crate::init;
 
-use super::{
-    Flags,
-    Mark,
-};
+use super::Flags;
+use super::Mark;
 
 #[derive(Error, Debug, Eq, PartialEq, Hash)]
 pub enum StaticError {

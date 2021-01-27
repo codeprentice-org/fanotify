@@ -1,30 +1,25 @@
-use std::{
-    convert::{
-        TryFrom,
-        TryInto,
-    },
-    os::unix::io::{
-        AsRawFd,
-        RawFd,
-    },
-};
+use std::convert::TryFrom;
+use std::convert::TryInto;
+use std::os::unix::io::AsRawFd;
+use std::os::unix::io::RawFd;
 
+use apply::Apply;
 use nix::errno::Errno;
 use static_assertions::const_assert_eq;
 use to_trait::To;
 
-use crate::{
-    fd::FD,
-    libc::write::{FAN_ALLOW, FAN_AUDIT, FAN_DENY, fanotify_response},
-};
+use crate::fd::FD;
+use crate::libc::write::FAN_ALLOW;
+use crate::libc::write::FAN_AUDIT;
+use crate::libc::write::FAN_DENY;
+use crate::libc::write::fanotify_response;
 
-use super::super::{
-    file::GetFD,
-    responses::{RC, Responses},
-};
+use super::super::file::GetFD;
+use super::super::responses::RC;
+use super::super::responses::Responses;
 
-use self::PermissionDecision::{Allow, Deny};
-use apply::Apply;
+use self::PermissionDecision::Allow;
+use self::PermissionDecision::Deny;
 
 /// A permission decision for a file event, either [`Allow`] or [`Deny`].
 /// Defaults to [`Allow`].

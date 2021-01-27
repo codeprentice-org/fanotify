@@ -1,14 +1,10 @@
 use crate::mark;
 
-use super::{
-    file::{
-        fd::FileFD,
-        fid::FileFID,
-        File,
-        permission::FilePermission,
-    },
-    id::EventId,
-};
+use super::file::fd::FileFD;
+use super::file::fid::FileFID;
+use super::file::File;
+use super::file::permission::FilePermission;
+use super::id::EventId;
 
 #[derive(Debug)]
 pub struct EventOf<FileT> {

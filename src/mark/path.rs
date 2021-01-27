@@ -1,9 +1,9 @@
-use std::{
-    borrow::Cow,
-    fmt::{Debug, Display, Formatter},
-    fmt,
-    os::unix::io::AsRawFd,
-};
+use std::borrow::Cow;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::os::unix::io::AsRawFd;
 
 use super::DirFd;
 

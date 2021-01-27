@@ -1,40 +1,34 @@
-use std::{
-    convert::TryInto,
-    mem::size_of,
-    os::unix::io::FromRawFd,
-};
+use std::convert::TryInto;
+use std::mem::size_of;
+use std::os::unix::io::FromRawFd;
 
 use nix::unistd::Pid;
 
-use crate::{
-    fd::FD,
-    init,
-    libc::{
-        mark::mask::FAN_Q_OVERFLOW,
-        read::{
-            FAN_NOFD,
-            fanotify_event_info_fid,
-            fanotify_event_info_header,
-            fanotify_event_metadata,
-            FANOTIFY_METADATA_VERSION,
-        },
-    },
-    mark,
-};
+use crate::fd::FD;
+use crate::init;
+use crate::libc::mark::mask::FAN_Q_OVERFLOW;
+use crate::libc::read::FAN_NOFD;
+use crate::libc::read::fanotify_event_info_fid;
+use crate::libc::read::fanotify_event_info_header;
+use crate::libc::read::fanotify_event_metadata;
+use crate::libc::read::FANOTIFY_METADATA_VERSION;
+use crate::mark;
 
-use super::{
-    error::{EventError, EventResult, TooShortError},
-    event::Event,
-    events::Events,
-    file::{
-        fd::FileFD,
-        fid::{FileFID, FileHandle, FileSystemId, InfoType},
-        File,
-        permission::FilePermission,
-    },
-    id::{EventId, Id},
-    iterator_ext::IntoEvents,
-};
+use super::error::EventError;
+use super::error::EventResult;
+use super::error::TooShortError;
+use super::event::Event;
+use super::events::Events;
+use super::file::fd::FileFD;
+use super::file::fid::FileFID;
+use super::file::fid::FileHandle;
+use super::file::fid::FileSystemId;
+use super::file::fid::InfoType;
+use super::file::File;
+use super::file::permission::FilePermission;
+use super::id::EventId;
+use super::id::Id;
+use super::iterator_ext::IntoEvents;
 
 /// A consuming [`Iterator`] over [`Events`].
 pub struct EventIterator<'a> {

@@ -1,14 +1,11 @@
 use std::iter::FilterMap;
 
-use super::{
-    error::EventResult,
-    event::{Event, EventOf},
-    file::{
-        fd::FileFD,
-        fid::FileFID,
-        permission::FilePermission,
-    },
-};
+use super::error::EventResult;
+use super::event::Event;
+use super::event::EventOf;
+use super::file::fd::FileFD;
+use super::file::fid::FileFID;
+use super::file::permission::FilePermission;
 
 type UnwrapEventResult<'a> = fn(EventResult<'a>) -> Option<Event<'a>>;
 type ProjectEvent<'a, FileT> = fn(Event<'a>) -> Option<EventOf<FileT>>;

@@ -2,13 +2,10 @@ use std::io;
 
 use apply::Apply;
 
-use crate::{
-    buffered_fanotify::{AsyncBufferedFanotify, BufferedFanotify},
-    event::{
-        event::Event,
-        iterator_ext::IntoEvents,
-    },
-};
+use crate::buffered_fanotify::AsyncBufferedFanotify;
+use crate::buffered_fanotify::BufferedFanotify;
+use crate::event::event::Event;
+use crate::event::iterator_ext::IntoEvents;
 
 pub struct Driver {
     pub fanotify: BufferedFanotify,

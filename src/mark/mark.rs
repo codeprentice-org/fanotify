@@ -1,19 +1,16 @@
-use std::{
-    fmt::{Display, Formatter},
-    fmt,
-};
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
-use super::{
-    Action,
-    Flags,
-    Mask,
-    OneAction,
-    Path,
-    StaticError,
-    What,
-    Action::Flush,
-    error::StaticError::EmptyMask,
-};
+use super::Action;
+use super::Action::Flush;
+use super::error::StaticError::EmptyMask;
+use super::Flags;
+use super::Mask;
+use super::OneAction;
+use super::Path;
+use super::StaticError;
+use super::What;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct OneMark<'a> {

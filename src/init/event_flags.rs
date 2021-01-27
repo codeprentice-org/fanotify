@@ -1,6 +1,5 @@
 use bitflags::bitflags;
 
-
 bitflags! {
     pub struct EventFlags: u32 {
         const LARGE_FILE = libc::O_LARGEFILE as u32;

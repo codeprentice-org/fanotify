@@ -1,10 +1,6 @@
-use std::{
-    fmt::{
-        self,
-        Debug,
-        Formatter,
-    },
-};
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Formatter;
 
 use libc::pid_t;
 use nix::unistd::{getpid, gettid, Pid};

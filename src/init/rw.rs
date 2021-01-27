@@ -1,4 +1,3 @@
-
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(u32)]
 pub enum ReadWrite {

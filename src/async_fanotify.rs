@@ -2,19 +2,12 @@ use std::io;
 
 use async_io::Async;
 
-use crate::mark::Markable;
-
-use super::{
-    event::{
-        buffer::EventBuffer,
-        events::Events,
-    },
-    fanotify::Fanotify,
-    mark::{
-        self,
-        Mark,
-    },
-};
+use super::event::buffer::EventBuffer;
+use super::event::events::Events;
+use super::fanotify::Fanotify;
+use super::mark;
+use super::mark::Mark;
+use super::mark::Markable;
 
 /// An async version of [`Fanotify`].
 pub struct AsyncFanotify {

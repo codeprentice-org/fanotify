@@ -1,19 +1,15 @@
 use std::io;
 
-use crate::event::buffer::EventBufferSize;
-use crate::event::events::Events;
-
-use super::{
-    async_fanotify::AsyncFanotify,
-    event::buffer::EventBuffer,
-    fanotify::Fanotify,
-    mark::{
-        self,
-        Mark,
-        Markable,
-    },
-};
 use apply::Apply;
+
+use super::async_fanotify::AsyncFanotify;
+use super::event::buffer::EventBuffer;
+use super::event::buffer::EventBufferSize;
+use super::event::events::Events;
+use super::fanotify::Fanotify;
+use super::mark;
+use super::mark::Mark;
+use super::mark::Markable;
 
 pub struct BufferedFanotify {
     pub fanotify: Fanotify,
@@ -88,7 +84,7 @@ impl IntoBufferedFanotify for AsyncFanotify {
 
 impl BufferedFanotify {
     pub fn into_async(self) -> io::Result<AsyncBufferedFanotify> {
-        let Self {fanotify, buffer} = self;
+        let Self { fanotify, buffer } = self;
         AsyncBufferedFanotify {
             fanotify: fanotify.into_async()?,
             buffer,

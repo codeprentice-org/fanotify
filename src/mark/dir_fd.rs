@@ -1,10 +1,12 @@
-use std::{
-    borrow::Cow,
-    fmt,
-    fmt::{Display, Formatter},
-    marker::PhantomData,
-    os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
-};
+use std::borrow::Cow;
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::marker::PhantomData;
+use std::os::unix::io::AsRawFd;
+use std::os::unix::io::FromRawFd;
+use std::os::unix::io::IntoRawFd;
+use std::os::unix::io::RawFd;
 
 /// A borrowed directory file descriptor with lifetime `'a`.
 ///

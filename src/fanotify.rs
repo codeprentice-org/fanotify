@@ -1,34 +1,28 @@
-use std::{
-    convert::TryFrom,
-    io,
-    os::unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
-};
+use std::convert::TryFrom;
+use std::io;
+use std::os::unix::io::AsRawFd;
+use std::os::unix::io::FromRawFd;
+use std::os::unix::io::IntoRawFd;
+use std::os::unix::io::RawFd;
 
 use nix::errno::Errno;
 
 use crate::libc::call::SysCall;
 
-use super::{
-    event::{
-        buffer::EventBuffer,
-        events::Events,
-    },
-    fd::FD,
-    init::{
-        self,
-        Flags,
-        Init,
-        NotificationClass::Notify,
-        RawInit,
-    },
-    mark::{
-        self,
-        Action::{Add, Remove},
-        FanotifyMark,
-        Mark,
-        Markable,
-    },
-};
+use super::event::buffer::EventBuffer;
+use super::event::events::Events;
+use super::fd::FD;
+use super::init;
+use super::init::Flags;
+use super::init::Init;
+use super::init::NotificationClass::Notify;
+use super::init::RawInit;
+use super::mark;
+use super::mark::Action::Add;
+use super::mark::Action::Remove;
+use super::mark::FanotifyMark;
+use super::mark::Mark;
+use super::mark::Markable;
 
 /// The main [`Fanotify`] struct, the primary entry point to the fanotify API.
 #[derive(Debug)]

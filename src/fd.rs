@@ -1,15 +1,16 @@
-use std::{
-    cmp,
-    fmt,
-    mem,
-    io,
-    fmt::{Display, Formatter},
-    os::{
-        raw::c_void,
-        unix::io::{AsRawFd, FromRawFd, IntoRawFd, RawFd},
-    },
-    path::{PathBuf, Path},
-};
+use std::cmp;
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::io;
+use std::mem;
+use std::os::raw::c_void;
+use std::os::unix::io::AsRawFd;
+use std::os::unix::io::FromRawFd;
+use std::os::unix::io::IntoRawFd;
+use std::os::unix::io::RawFd;
+use std::path::Path;
+use std::path::PathBuf;
 
 use nix::errno::Errno;
 

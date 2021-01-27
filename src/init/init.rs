@@ -1,9 +1,11 @@
-use std::{
-    fmt::{Display, Formatter},
-    fmt,
-};
+use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
-use super::{EventFlags, Flags, NotificationClass, ReadWrite};
+use super::EventFlags;
+use super::Flags;
+use super::NotificationClass;
+use super::ReadWrite;
 
 #[derive(Debug, Eq, PartialEq, Hash)]
 pub struct Init {

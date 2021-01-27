@@ -1,7 +1,5 @@
-use crate::{
-    fd::FD,
-    init,
-};
+use crate::fd::FD;
+use crate::init;
 
 use super::event::Event;
 

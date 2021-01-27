@@ -1,15 +1,11 @@
-use std::{
-    fs,
-    io::{
-        Read,
-        Seek,
-        SeekFrom,
-        Write,
-    },
-    mem,
-    path::Path,
-    slice,
-};
+use std::fs;
+use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom;
+use std::io::Write;
+use std::mem;
+use std::path::Path;
+use std::slice;
 
 use apply::Apply;
 use async_io::block_on;
@@ -19,27 +15,22 @@ use to_trait::To;
 
 use driver::Driver;
 
-use crate::{
-    buffered_fanotify::IntoBufferedFanotify,
-    event::{
-        buffer::EventBufferSize,
-        events::Events,
-        file::GetFD,
-        iterator_ext::IntoEvents,
-    },
-    fanotify::Fanotify,
-    init,
-    init::{Flags, Init},
-    libc::read::fanotify_event_metadata,
-    mark::{
-        self,
-        Mark,
-        Markable,
-        Mask,
-        OneAction::Add,
-        What::MountPoint,
-    },
-};
+use crate::buffered_fanotify::IntoBufferedFanotify;
+use crate::event::buffer::EventBufferSize;
+use crate::event::events::Events;
+use crate::event::file::GetFD;
+use crate::event::iterator_ext::IntoEvents;
+use crate::fanotify::Fanotify;
+use crate::init;
+use crate::init::Flags;
+use crate::init::Init;
+use crate::libc::read::fanotify_event_metadata;
+use crate::mark;
+use crate::mark::Mark;
+use crate::mark::Markable;
+use crate::mark::Mask;
+use crate::mark::OneAction::Add;
+use crate::mark::What::MountPoint;
 
 mod driver;
 mod supported;
@@ -160,7 +151,7 @@ fn async_api() {
         block_on(async {
             let mut driver = fanotify.buffered_default().to::<Driver>().into_async()?;
             let path = Path::new("/bin/ls");
-            fs::read(path)?; // not fs::read_to_string since this /bin/ls is an executable
+            let _ = fs::read(path)?; // not fs::read_to_string since this /bin/ls is an executable
             let event = driver.read1().await?;
             assert_eq!(event.mask(), Mask::OPEN | Mask::ACCESS);
             assert_eq!(event.into_file().path().unwrap().unwrap().as_path(), path);

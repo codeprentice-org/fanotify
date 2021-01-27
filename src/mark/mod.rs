@@ -1,14 +1,19 @@
-pub use action::{Action, OneAction};
+pub use action::Action;
+pub use action::OneAction;
 pub use dir_fd::DirFd;
-pub use error::{Error, RawError, StaticError};
+pub use error::Error;
+pub use error::RawError;
+pub use error::StaticError;
 pub use flags::Flags;
-pub use mark::{Mark, OneMark as One};
+pub use mark::Mark;
+pub use mark::OneMark as One;
+pub use markable::Markable;
 pub use mask::Mask;
 pub use path::Path;
-pub use raw::{RawFlags, RawMark};
 pub(crate) use raw::FanotifyMark;
+pub use raw::RawFlags;
+pub use raw::RawMark;
 pub use what::What;
-pub use markable::Markable;
 
 mod dir_fd;
 mod path;
