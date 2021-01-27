@@ -125,7 +125,7 @@ fn mark_and_read(read1: impl Fn(Driver) -> io::Result<(Mask, Option<io::Result<P
             | Mask::MODIFY,
         path: mark::Path::absolute("/etc"),
     }.try_into()?)?;
-    let path = Path::new("/etc/password");
+    let path = Path::new("/etc/passwd");
     let _ = fs::read(path)?;
     let (mask, event_path) = read1(driver)?;
     assert_eq!(mask, Mask::OPEN | Mask::ACCESS | Mask::CLOSE_NO_WRITE);
