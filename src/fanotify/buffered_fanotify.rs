@@ -2,14 +2,14 @@ use std::io;
 
 use apply::Apply;
 
-use super::async_fanotify::AsyncFanotify;
-use super::event::buffer::EventBuffer;
-use super::event::buffer::EventBufferSize;
-use super::event::events::Events;
-use super::fanotify::Fanotify;
-use super::mark;
-use super::mark::Mark;
-use super::mark::Markable;
+use crate::fanotify::async_fanotify::AsyncFanotify;
+use crate::event::buffer::EventBuffer;
+use crate::event::buffer::EventBufferSize;
+use crate::event::events::Events;
+use crate::fanotify::Fanotify;
+use crate::mark;
+use crate::mark::Mark;
+use crate::mark::Markable;
 
 pub struct BufferedFanotify {
     pub fanotify: Fanotify,

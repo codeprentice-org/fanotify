@@ -2,8 +2,8 @@ use std::io;
 
 use apply::Apply;
 
-use fanotify::buffered_fanotify::AsyncBufferedFanotify;
-use fanotify::buffered_fanotify::BufferedFanotify;
+use fanotify::fanotify::buffered_fanotify::AsyncBufferedFanotify;
+use fanotify::fanotify::buffered_fanotify::BufferedFanotify;
 use fanotify::event::event::Event;
 use fanotify::event::iterator_ext::IntoEvents;
 use fanotify::event::display::DisplayEvents;

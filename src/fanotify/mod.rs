@@ -7,22 +7,24 @@ use std::os::unix::io::RawFd;
 
 use nix::errno::Errno;
 
+use crate::event::buffer::EventBuffer;
+use crate::event::events::Events;
+use crate::fd::FD;
+use crate::init;
+use crate::init::Flags;
+use crate::init::Init;
+use crate::init::NotificationClass::Notify;
+use crate::init::RawInit;
 use crate::libc::call::SysCall;
+use crate::mark;
+use crate::mark::Action::Add;
+use crate::mark::Action::Remove;
+use crate::mark::FanotifyMark;
+use crate::mark::Mark;
+use crate::mark::Markable;
 
-use super::event::buffer::EventBuffer;
-use super::event::events::Events;
-use super::fd::FD;
-use super::init;
-use super::init::Flags;
-use super::init::Init;
-use super::init::NotificationClass::Notify;
-use super::init::RawInit;
-use super::mark;
-use super::mark::Action::Add;
-use super::mark::Action::Remove;
-use super::mark::FanotifyMark;
-use super::mark::Mark;
-use super::mark::Markable;
+pub mod buffered_fanotify;
+pub mod async_fanotify;
 
 /// The main [`Fanotify`] struct, the primary entry point to the fanotify API.
 #[derive(Debug)]

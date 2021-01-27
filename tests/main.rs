@@ -12,7 +12,7 @@ use tempfile::NamedTempFile;
 use tempfile::tempfile;
 use to_trait::To;
 
-use fanotify::buffered_fanotify::IntoBufferedFanotify;
+use fanotify::fanotify::buffered_fanotify::IntoBufferedFanotify;
 use fanotify::event::iterator_ext::IntoEvents;
 use fanotify::init;
 use fanotify::init::Flags;
