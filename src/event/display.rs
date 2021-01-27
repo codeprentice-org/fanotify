@@ -31,9 +31,9 @@ pub struct DisplayEvents<'a, 'b>(pub &'a Vec<Event<'b>>);
 
 impl Display for DisplayEvents<'_, '_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "[\n")?;
+        writeln!(f, "[")?;
         for event in self.0 {
-            write!(f, "    {},\n", event.display())?;
+            writeln!(f, "    {},", event.display())?;
         }
         write!(f, "]")?;
         Ok(())

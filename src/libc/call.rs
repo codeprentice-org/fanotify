@@ -36,19 +36,26 @@ pub fn libc_call<T: ZeroOne + Copy + Eq + Neg<Output=T>, F: FnOnce() -> T>(f: F)
     }
 }
 
-// /// Make a libc call like [`libc_call`], except throw away the return value.
-// pub fn libc_void_call<T: ZeroOne + Copy + Eq + Neg<Output=T>, F: FnOnce() -> T>(f: F) -> Result<(), Errno> {
-//     if libc_call(f)? == T::ZERO {
-//         Ok(())
-//     } else {
-//         unreachable!()
-//     }
-// }
+/// Make a libc call like [`libc_call`], except throw away the return value.
+#[allow(unused)]
+pub fn libc_void_call<T: ZeroOne + Copy + Eq + Neg<Output=T>, F: FnOnce() -> T>(f: F) -> Result<(), Errno> {
+    if libc_call(f)? == T::ZERO {
+        Ok(())
+    } else {
+        unreachable!()
+    }
+}
 
 pub trait RawSysCall: Debug {
     type Output: ZeroOne + Copy + Eq + Neg<Output=Self::Output>;
     fn name() -> &'static str;
     
+    /// # Safety
+    /// This will perform a syscall.
+    /// What it does depends on the syscall,
+    /// but generally it can do anything since it's a syscall.
+    ///
+    /// It is always wrapped in [`libc_call`] to safely handle any errors.
     unsafe fn unsafe_call(&self) -> Self::Output;
     
     fn call(&self) -> Result<Self::Output, Errno> {

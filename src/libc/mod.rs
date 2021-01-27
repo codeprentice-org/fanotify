@@ -3,7 +3,7 @@
 // TODO add documentation
 // TODO check that all the types are correct
 
-pub mod call;
+pub(crate) mod call;
 
 /// for fanotify_init
 pub mod init {
