@@ -1,7 +1,7 @@
-// #![deny(warnings)]
+#![deny(warnings)]
 
 pub mod fd;
-mod libc;
+pub mod libc;
 pub mod init;
 pub mod mark;
 pub mod event;

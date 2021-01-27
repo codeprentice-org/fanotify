@@ -70,7 +70,7 @@ pub(in super::super) struct RawFilePermission {
 }
 
 impl From<&RawFilePermission> for fanotify_response {
-    /// The (more) raw [`fanotify_response`] representation of this [`RawFilePermission`].
+    /// The (more) raw [`fanotify_response`] representation of this partially raw version.
     fn from(this: &RawFilePermission) -> Self {
         let audit = this.audit as u32 * FAN_AUDIT;
         Self {
