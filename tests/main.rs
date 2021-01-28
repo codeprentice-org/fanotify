@@ -8,6 +8,7 @@ use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 
+use apply::Apply;
 use async_io::block_on;
 use tempfile::NamedTempFile;
 use tempfile::tempfile;
@@ -219,18 +220,27 @@ fn forever() -> AnyResult {
         ),
         Full => (FileSystem, Mask::all() & !Mask::all_permissions()),
     };
+    let path = std::env::var_os("FOREVER")
+        .unwrap_or("/home".into())
+        .apply(PathBuf::from);
     let mut fanotify = get_init().to_fanotify()?.buffered_default();
     fanotify.mark(mark::One {
         action: Add,
         what,
         flags: mark::Flags::empty(),
         mask,
-        path: mark::Path::absolute("/home"),
-    }.try_into()?)?;
+        path: mark::Path::absolute(&path),
+    }.try_into()?)
+        .map_err(|it| it.error)?;
+    // need to use RawError instead of Error here,
+    // since Error contains a Mark<'a>, which can't be returned from the function
+    let mut i = 0;
     loop {
+        i += 1;
         for event in fanotify.read()?.all() {
             let event = event?;
-            println!("{}", &event.display());
+            println!("{}: {}", i, &event.display());
         }
+        println!();
     }
 }
