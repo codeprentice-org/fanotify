@@ -3,6 +3,7 @@
 ![License: MIT](https://img.shields.io/github/license/codeprentice-org/fanotify.svg)
 ![active development](https://img.shields.io/badge/active%20dev-yes-brightgreen.svg)
 ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/codeprentice-org/fanotify.svg)
+![Build test](https://img.shields.io/github/workflow/status/codeprentice-org/fanotify/Rust)
 
 An idiomatic Rust wrapper for [`fanotify(7)`](https://www.man7.org/linux/man-pages/man7/fanotify.7.html) on Linux.
 
@@ -27,5 +28,5 @@ and then just run `just` to see the available commands.
 - [ ] (All) Review event API.
 - [ ] (Khyber) Add more strict runtime pre-testing based on init flags.
 - [ ] (Rickson) Add robust testing.
-- [ ] (Rickson) Setup CI for `rustfmt`, `clippy`, and testing.
+- [X] (Rickson) Setup CI for `clippy` and testing.
 - [ ] (All) Release 0.2.0.
