@@ -94,6 +94,7 @@ fn filesystem_mark_unsupported() -> AnyResult {
 }
 
 #[test]
+#[ignore]
 fn create_mask_unsupported() -> AnyResult {
     mark_unsupported(mark::RawError::FeatureUnsupported, mark::One {
         action: Add,
