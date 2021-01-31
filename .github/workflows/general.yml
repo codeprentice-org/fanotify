@@ -16,7 +16,7 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - run: just st
+      - run: sudo -E env "PATH=${PATH}" cargo test
 
   clippy:
     name: Clippy
