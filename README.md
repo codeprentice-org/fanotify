@@ -1,4 +1,9 @@
 # fanotify
+
+![License: MIT](https://img.shields.io/github/license/codeprentice-org/fanotify.svg)
+![active development](https://img.shields.io/badge/active%20dev-yes-brightgreen.svg)
+![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/codeprentice-org/fanotify.svg)
+
 An idiomatic Rust wrapper for [`fanotify(7)`](https://www.man7.org/linux/man-pages/man7/fanotify.7.html) on Linux.
 
 
