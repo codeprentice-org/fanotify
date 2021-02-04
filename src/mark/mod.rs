@@ -33,7 +33,7 @@ mod tests {
         fs::File,
         path::Path,
     };
-    
+
     use crate::mark::{
         self,
         error,
@@ -42,7 +42,7 @@ mod tests {
         path,
         What::{FileSystem, MountPoint},
     };
-    
+
     #[test]
     fn mark_static_error() {
         assert_eq!(Mark::one(mark::mark::OneMark {
@@ -53,7 +53,7 @@ mod tests {
             path: path::Path::current_working_directory(),
         }), Err(error::StaticError::EmptyMask));
     }
-    
+
     #[test]
     fn mark_display_debug_1() {
         let mark = Mark::one(mark::mark::OneMark {
@@ -74,7 +74,7 @@ mod tests {
             }",
         );
     }
-    
+
     #[test]
     fn mark_display_debug_2() {
         let mark = Mark::one(mark::mark::OneMark {
@@ -95,7 +95,7 @@ mod tests {
             }",
         );
     }
-    
+
     #[test]
     fn mark_display_debug_3() {
         let root = File::open(Path::new("/")).unwrap();

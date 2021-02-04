@@ -24,7 +24,7 @@ impl<'a> Mark<'a> {
     pub const fn raw_flags(&self) -> RawFlags {
         self.action as u32 | self.what as u32 | self.flags.bits()
     }
-    
+
     pub fn to_raw(&self) -> RawMark {
         RawMark {
             flags: self.raw_flags(),
@@ -62,11 +62,11 @@ impl RawFanotifyMark {
 
 impl RawSysCall for RawFanotifyMark {
     type Output = c_int;
-    
+
     fn name() -> &'static str {
         "fanotify_mark"
     }
-    
+
     unsafe fn unsafe_call(&self) -> Self::Output {
         libc::fanotify_mark(self.fd, self.flags, self.mask, self.dir_fd, self.path_ptr())
     }
@@ -81,7 +81,7 @@ pub(crate) struct FanotifyMark<'a> {
 impl<'a> SysCall for FanotifyMark<'a> {
     type Raw = RawFanotifyMark;
     type Output = ();
-    
+
     fn to_raw(&self) -> Self::Raw {
         let raw = self.mark.to_raw();
         Self::Raw {
@@ -92,7 +92,7 @@ impl<'a> SysCall for FanotifyMark<'a> {
             path: raw.path,
         }
     }
-    
+
     fn convert_output(output: c_int) {
         assert_eq!(output, 0);
     }

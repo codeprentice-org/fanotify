@@ -36,19 +36,19 @@ impl<'a> Mark<'a> {
     pub fn action(&self) -> Action {
         self.action
     }
-    
+
     pub fn what(&self) -> What {
         self.what
     }
-    
+
     pub fn flags(&self) -> Flags {
         self.flags
     }
-    
+
     pub fn mask(&self) -> Mask {
         self.mask
     }
-    
+
     pub fn path(&self) -> &Path<'a> {
         &self.path
     }
@@ -103,7 +103,7 @@ impl<'a> Mark<'a> {
         };
         Ok(this)
     }
-    
+
     pub const fn flush(what: What) -> Self {
         Self {
             action: Flush,
@@ -117,7 +117,7 @@ impl<'a> Mark<'a> {
 
 impl<'a> TryFrom<OneMark<'a>> for Mark<'a> {
     type Error = StaticError;
-    
+
     /// See [`Mark::one`].
     fn try_from(this: OneMark<'a>) -> Result<Self, Self::Error> {
         Mark::one(this)

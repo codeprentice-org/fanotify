@@ -38,7 +38,7 @@ impl<'a> Path<'a> {
             path: None,
         }
     }
-    
+
     /// Create a [`Path`] relative to the given [`DirFd`] directory.
     pub fn relative_to<FD: AsRawFd, P: AsRef<std::path::Path> + 'a + ?Sized>(dir: &'a FD, path: &'a P) -> Self {
         Self {
@@ -46,7 +46,7 @@ impl<'a> Path<'a> {
             path: Some(path.as_ref()),
         }
     }
-    
+
     /// Create a [`Path`] using an absolute path.
     pub fn absolute<P: AsRef<std::path::Path> + 'a + ?Sized>(path: &'a P) -> Self {
         Self {
@@ -54,7 +54,7 @@ impl<'a> Path<'a> {
             path: Some(path.as_ref()),
         }
     }
-    
+
     /// Resolve this [`Path`] to its absolute path,
     /// attempting to use the `/proc` filesystem to resolve the [`DirFd`] directory.
     ///

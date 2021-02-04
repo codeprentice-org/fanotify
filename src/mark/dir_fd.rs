@@ -44,7 +44,7 @@ impl DirFd<'static> {
     pub const fn current_working_directory() -> Self {
         unsafe { Self::const_from_raw_fd(libc::AT_FDCWD) }
     }
-    
+
     /// # Safety
     /// This will create an invalid directory file descriptor.
     /// Only use it where the [`DirFd`] will be ignored or you want it to cause an error.
@@ -62,7 +62,7 @@ impl<'a> DirFd<'a> {
             phantom: PhantomData,
         }
     }
-    
+
     /// Create a [`DirFd`] from an existing [`AsRawFd`].
     /// The [`AsRawFd`] given must point to a directory for things to work correctly.
     pub fn directory<P: AsRawFd>(dir: &'a P) -> Self {
@@ -71,7 +71,7 @@ impl<'a> DirFd<'a> {
             phantom: PhantomData,
         }
     }
-    
+
     /// Check if this [`DirFd`] represents the special current working directory file descriptor.
     ///
     /// It could be the case that this [`DirFd`] represents the current working directory as `open(".")`,
@@ -79,7 +79,7 @@ impl<'a> DirFd<'a> {
     pub const fn is_current_working_directory(&self) -> bool {
         self.fd == libc::AT_FDCWD
     }
-    
+
     /// Resolve this [`DirFd`] to its absolute path,
     /// attempting to use the `/proc` filesystem to resolve the file descriptor.
     pub fn resolve(&self) -> Cow<std::path::Path> {
