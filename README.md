@@ -22,7 +22,7 @@ and then just run `just` to see the available commands.
 - [X] (Khyber) Implement ergonomic and safe response write API.
 - [X] (Khyber) Implement async API.
 - [X] (All) Add most documentation.
-- [ ] (Rickson) Document flags, masks, etc. (from man pages).
+- [X] (Rickson) Document flags, masks, etc. (from man pages).
 - [ ] (All) Review init API.
 - [ ] (All) Review mark API.
 - [ ] (All) Review event API.
