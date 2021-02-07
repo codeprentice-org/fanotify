@@ -16,16 +16,11 @@ check *args:
 alias c := check
 
 test *args:
-	cargo test {{args}}
+	cargo test -- --test-threads 1 {{args}}
 
 alias t := test
 
-sudo-test *args:
-	sudo -E env "PATH=${PATH}" cargo test {{args}}
-
-alias st := sudo-test
-
 doc *args:
-	cargo doc --document-private-items {{args}}
+	cargo doc {{args}}
 
 alias d := doc

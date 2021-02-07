@@ -1,0 +1,5 @@
+[build]
+rustdocflags = ["--document-private-items"]
+
+[target.x86_64-unknown-linux-gnu]
+runner = "sudo -E"
