@@ -29,4 +29,5 @@ and then just run `just` to see the available commands.
 - [ ] (Khyber) Add more strict runtime pre-testing based on init flags.
 - [ ] (Rickson) Add robust testing.
 - [X] (Rickson) Setup CI for `clippy` and testing.
+- [ ] (Rickson) Setup Docker workflow with latest kernel version (> 5.10)
 - [ ] (All) Release 0.2.0.
