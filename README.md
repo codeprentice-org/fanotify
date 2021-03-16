@@ -15,15 +15,15 @@ containing some common commands for easier development.
 Run `cargo install just` to install `just`, 
 and then just run `just` to see the available commands.
 
-## Docker (for local development)
+## Local Docker Workflow
 After installing `docker` and `docker-compose` (comes bundled for Windows and MacOS)
 
 Build docker image and access shell
 ```bash
 cd fanotify
 docker build -t fanotify .
-# Note: for security docker does not have many Linux capabilities by default, add them manually if needed with the `--cap-add` flag
-docker run --cap-add sys_admin -i -t -v "$(pwd):/usr/src/fanotify fanotify bash
+# Note: docker does not have core Linux capabilities by default, add them with `--cap-add`
+docker run --cap-add sys_admin -itv "$(pwd):/usr/src/fanotify" fanotify bash
 ```
 
 ## Roadmap
@@ -40,5 +40,5 @@ docker run --cap-add sys_admin -i -t -v "$(pwd):/usr/src/fanotify fanotify bash
 - [ ] (Khyber) Add more strict runtime pre-testing based on init flags.
 - [ ] (Rickson) Add robust testing.
 - [X] (Rickson) Setup CI for `clippy` and testing.
-- [ ] (Rickson) Setup docker workflow
+- [X] (Rickson) Setup docker workflow
 - [ ] (All) Release 0.2.0.
